@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,16 +8,18 @@ import {
   StyleSheet,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { MOCK_BOOKS, MOCK_ACTIVE_BORROWINGS } from '@/data/mockData';
+import { MOCK_BOOKS } from '@/data/mockData';
+import { getRecommendations } from '@/api/recommendations';
+import { getTrending, getNewArrivals } from '@/api/trending';
 import BookDetailScreen from '@/screens/catalogue/BookDetailScreen';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
 
-// ── Horizontal book card (portrait) ────────────────────────────
 function BookCard({ book, onPress }) {
   return (
     <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.8}>
@@ -34,7 +36,6 @@ function BookCard({ book, onPress }) {
   );
 }
 
-// ── New arrival row (list-style) ────────────────────────────────
 function NewArrivalRow({ book, onPress }) {
   return (
     <TouchableOpacity style={rowStyles.row} onPress={onPress} activeOpacity={0.8}>
@@ -57,18 +58,36 @@ function NewArrivalRow({ book, onPress }) {
 
 export default function RecommendedScreen({ onClose }) {
   const [selectedBook, setSelectedBook] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+  const [trending, setTrending]               = useState([]);
+  const [newArrivals, setNewArrivals]         = useState([]);
+  const [loading, setLoading]                 = useState(true);
 
-  // Use the currently-borrowed book for personalised section heading
-  const basedOnTitle = MOCK_ACTIVE_BORROWINGS[0]?.title || 'Your reading history';
+  useEffect(() => {
+    async function fetchAll() {
+      const [recRes, trendRes, arrRes] = await Promise.allSettled([
+        getRecommendations(10),
+        getTrending(6),
+        getNewArrivals(6),
+      ]);
 
-  // Derive recommendation groups from MOCK_BOOKS
-  const similarBooks  = MOCK_BOOKS.filter((b) => b.genre === 'Technology').slice(0, 3);
-  const trendingBooks = MOCK_BOOKS.slice(3, 6);
-  const newArrivals   = MOCK_BOOKS.slice(6, 10);
+      const pick = (res, fallback) => {
+        if (res.status !== 'fulfilled') return fallback;
+        const d = res.value.data;
+        const arr = d?.books || (Array.isArray(d) ? d : []);
+        return arr.length > 0 ? arr : fallback;
+      };
+
+      setRecommendations(pick(recRes,  MOCK_BOOKS.slice(0, 6)));
+      setTrending(       pick(trendRes, MOCK_BOOKS.slice(3, 9)));
+      setNewArrivals(    pick(arrRes,  MOCK_BOOKS.slice(6, 12)));
+      setLoading(false);
+    }
+    fetchAll();
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe}>
-
       {/* ── Top bar ── */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
@@ -79,57 +98,70 @@ export default function RecommendedScreen({ onClose }) {
       </View>
       <View style={styles.divider} />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-
-        {/* ── AI-Powered Picks banner ── */}
-        <View style={styles.aiBanner}>
-          <MaterialCommunityIcons name="robot-outline" size={28} color="#4F46E5" />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.aiTitle}>AI-Powered Picks</Text>
-            <Text style={styles.aiSub}>Based on your borrow history and ratings</Text>
-          </View>
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#4F46E5" />
         </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* ── Based on current borrow ── */}
-        <Text style={styles.sectionTitle}>Based on "{basedOnTitle}"</Text>
-        <FlatList
-          horizontal
-          data={similarBooks}
-          keyExtractor={(b) => String(b.book_id)}
-          renderItem={({ item }) => (
-            <BookCard book={item} onPress={() => setSelectedBook(item)} />
-          )}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hList}
-        />
-
-        {/* ── Trending this month ── */}
-        <Text style={styles.sectionTitle}>Trending This Month</Text>
-        <FlatList
-          horizontal
-          data={trendingBooks}
-          keyExtractor={(b) => String(b.book_id)}
-          renderItem={({ item }) => (
-            <BookCard book={item} onPress={() => setSelectedBook(item)} />
-          )}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hList}
-        />
-
-        {/* ── New Arrivals (list) ── */}
-        <Text style={styles.sectionTitle}>New Arrivals</Text>
-        <View style={styles.newArrivalsCard}>
-          {newArrivals.map((book, idx) => (
-            <View key={book.book_id}>
-              <NewArrivalRow book={book} onPress={() => setSelectedBook(book)} />
-              {idx < newArrivals.length - 1 && <View style={rowStyles.divider} />}
+          {/* ── AI banner ── */}
+          <View style={styles.aiBanner}>
+            <MaterialCommunityIcons name="robot-outline" size={28} color="#4F46E5" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.aiTitle}>AI-Powered Picks</Text>
+              <Text style={styles.aiSub}>Based on your borrow history and ratings</Text>
             </View>
-          ))}
-        </View>
+          </View>
 
-      </ScrollView>
+          {/* ── Recommended ── */}
+          {recommendations.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Recommended for You</Text>
+              <FlatList
+                horizontal
+                data={recommendations}
+                keyExtractor={(b) => String(b.book_id)}
+                renderItem={({ item }) => <BookCard book={item} onPress={() => setSelectedBook(item)} />}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hList}
+              />
+            </>
+          )}
 
-      {/* ── Book Detail Modal ── */}
+          {/* ── Trending ── */}
+          {trending.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Trending This Month</Text>
+              <FlatList
+                horizontal
+                data={trending}
+                keyExtractor={(b) => String(b.book_id)}
+                renderItem={({ item }) => <BookCard book={item} onPress={() => setSelectedBook(item)} />}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.hList}
+              />
+            </>
+          )}
+
+          {/* ── New Arrivals ── */}
+          {newArrivals.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>New Arrivals</Text>
+              <View style={styles.newArrivalsCard}>
+                {newArrivals.map((book, idx) => (
+                  <View key={book.book_id}>
+                    <NewArrivalRow book={book} onPress={() => setSelectedBook(book)} />
+                    {idx < newArrivals.length - 1 && <View style={rowStyles.divider} />}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+        </ScrollView>
+      )}
+
       <Modal
         visible={selectedBook !== null}
         animationType="slide"
@@ -154,6 +186,8 @@ const styles = StyleSheet.create({
   topBarTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
   divider: { height: 1, backgroundColor: '#E5E7EB' },
 
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
   scroll: { padding: 16, paddingBottom: 40 },
 
   aiBanner: {
@@ -164,23 +198,15 @@ const styles = StyleSheet.create({
   aiTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
   aiSub:   { fontSize: 13, color: '#6B7280' },
 
-  sectionTitle: {
-    fontSize: 16, fontWeight: '700', color: '#111827',
-    marginBottom: 12, marginTop: 8,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12, marginTop: 8 },
 
   hList: { paddingRight: 16, paddingBottom: 16 },
 
-  newArrivalsCard: {
-    backgroundColor: '#E8E8E8', borderRadius: 14, overflow: 'hidden',
-  },
+  newArrivalsCard: { backgroundColor: '#E8E8E8', borderRadius: 14, overflow: 'hidden' },
 });
 
 const cardStyles = StyleSheet.create({
-  card: {
-    width: 140, marginRight: 12,
-    backgroundColor: '#E8E8E8', borderRadius: 12, overflow: 'hidden',
-  },
+  card: { width: 140, marginRight: 12, backgroundColor: '#E8E8E8', borderRadius: 12, overflow: 'hidden' },
   cover: { width: '100%', height: 160, backgroundColor: '#C4C4C4' },
   info:  { padding: 10 },
   title: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 2 },
@@ -188,18 +214,12 @@ const cardStyles = StyleSheet.create({
 });
 
 const rowStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-  },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   thumb: { width: 52, height: 70, borderRadius: 8, backgroundColor: '#C4C4C4', flexShrink: 0 },
   title: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
   author:{ fontSize: 12, color: '#6B7280', marginBottom: 2 },
   genre: { fontSize: 11, color: '#9CA3AF' },
-  newBadge: {
-    backgroundColor: '#4F46E5', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0,
-  },
+  newBadge: { backgroundColor: '#4F46E5', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
   newText:  { fontSize: 11, fontWeight: '700', color: '#fff' },
   divider:  { height: 1, backgroundColor: '#D5D5D5', marginHorizontal: 14 },
 });

@@ -68,13 +68,14 @@ export default function ChangePasswordScreen({ onSuccess }) {
     if (!validate()) return;
     setLoading(true);
     try {
-      // When backend is ready: await changePassword(form.old_password, form.new_password);
-      await new Promise((r) => setTimeout(r, 600)); // mock delay
+      const { changePassword } = await import('@/api/auth');
+      await changePassword(form.old_password, form.new_password);
       Alert.alert('Password Changed', 'Your password has been updated successfully.', [
         { text: 'OK', onPress: onSuccess },
       ]);
-    } catch {
-      Alert.alert('Error', 'Could not update password. Please try again.');
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Could not update password. Please try again.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }

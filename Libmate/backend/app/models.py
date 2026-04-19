@@ -157,10 +157,22 @@ class Wishlist(db.Model):
 
 class Reservation(db.Model):
     __tablename__ = 'reservations'
-    
+
     reservation_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
     book_id = db.Column(db.Integer, db.ForeignKey('books.book_id', ondelete='CASCADE'), nullable=False)
     reserved_at = db.Column(db.TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))
     expires_at = db.Column(db.TIMESTAMP, nullable=False)
     status = db.Column(db.Enum('pending', 'fulfilled', 'cancelled', 'expired'), default='pending')
+
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+
+    notification_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    type = db.Column(db.String(50))
+    title = db.Column(db.String(255))
+    message = db.Column(db.Text)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.TIMESTAMP, server_default=text('CURRENT_TIMESTAMP'))

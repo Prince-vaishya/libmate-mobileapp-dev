@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MOCK_ACTIVE_BORROWINGS, MOCK_BORROWING_HISTORY, MOCK_WISHLIST } from '@/data/mockData';
-import { getMyBorrowings, getMyHistory, getMyWishlist } from '@/api/users';
+import { getMyBorrowings, getMyHistory, getMyWishlist, getMyReservations } from '@/api/users';
 import { requestRenewal } from '@/api/borrowings';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
@@ -170,6 +170,34 @@ function HistoryCard({ item }) {
   );
 }
 
+// ── Reservation card ───────────────────────────────────────────
+function ReservationCard({ item }) {
+  const expiresAt = new Date(item.expires_at);
+  const now = new Date();
+  const hoursLeft = Math.max(0, Math.round((expiresAt - now) / 3600000));
+  return (
+    <View style={styles.borrowCard}>
+      <View style={styles.borrowCardInner}>
+        <Image
+          source={item.cover_image ? { uri: item.cover_image } : PLACEHOLDER}
+          style={styles.borrowCover}
+          resizeMode="cover"
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.borrowTitle}>{item.title}</Text>
+          <Text style={styles.borrowAuthor}>{item.author}</Text>
+          <Text style={styles.borrowDates}>Reserved: {formatDate(item.reserved_at)}</Text>
+          <View style={[styles.copyBadge, { backgroundColor: hoursLeft > 0 ? '#FEF3C7' : '#FEE2E2', marginTop: 4 }]}>
+            <Text style={[styles.copyBadgeText, { color: hoursLeft > 0 ? '#92400E' : '#991B1B' }]}>
+              {hoursLeft > 0 ? `Collect within ${hoursLeft}h` : 'Reservation expired'}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ── Wishlist card ──────────────────────────────────────────────
 function WishlistCard({ book }) {
   const avail = book.available_copies > 0;
@@ -207,16 +235,18 @@ function EmptyState({ message }) {
 export default function MyBooksScreen() {
   const [activeTab, setActiveTab] = useState('Borrowing');
   const [renewItem, setRenewItem] = useState(null);
-  const [borrowings, setBorrowings] = useState(MOCK_ACTIVE_BORROWINGS);
-  const [history,    setHistory]    = useState(MOCK_BORROWING_HISTORY);
-  const [wishlist,   setWishlist]   = useState(MOCK_WISHLIST);
+  const [borrowings,    setBorrowings]    = useState(MOCK_ACTIVE_BORROWINGS);
+  const [history,       setHistory]       = useState(MOCK_BORROWING_HISTORY);
+  const [wishlist,      setWishlist]      = useState(MOCK_WISHLIST);
+  const [reservations,  setReservations]  = useState([]);
 
   useEffect(() => {
     async function fetchData() {
-      const [bRes, hRes, wRes] = await Promise.allSettled([
+      const [bRes, hRes, wRes, rRes] = await Promise.allSettled([
         getMyBorrowings(),
         getMyHistory(),
         getMyWishlist(),
+        getMyReservations(),
       ]);
       if (bRes.status === 'fulfilled') {
         const d = bRes.value.data;
@@ -231,6 +261,10 @@ export default function MyBooksScreen() {
         const d = wRes.value.data;
         if (Array.isArray(d) && d.length > 0) setWishlist(d);
       }
+      if (rRes.status === 'fulfilled') {
+        const d = rRes.value.data;
+        if (Array.isArray(d)) setReservations(d);
+      }
     }
     fetchData();
   }, []);
@@ -244,7 +278,9 @@ export default function MyBooksScreen() {
             ))
           : <EmptyState message="You have no active borrowings." />;
       case 'Reserved':
-        return <EmptyState message="You have no reserved books." />;
+        return reservations.length > 0
+          ? reservations.map((item) => <ReservationCard key={item.reservation_id} item={item} />)
+          : <EmptyState message="You have no reserved books." />;
       case 'Wishlist':
         return wishlist.length > 0
           ? wishlist.map((book) => <WishlistCard key={book.book_id} book={book} />)

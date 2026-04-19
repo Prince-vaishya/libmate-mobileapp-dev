@@ -1,12 +1,4 @@
-/**
- * BookDetailScreen
- *
- * Used as a full-screen Modal (not a navigation stack screen).
- * Receives: book (object), onClose (function)
- * Matches wireframe: cover LEFT, info RIGHT, Reserve + Wishlist buttons,
- * Description card, Reviews list, Write a Review button.
- */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,22 +7,29 @@ import {
   StyleSheet,
   Alert,
   Image,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { MOCK_REVIEWS, MOCK_WISHLIST } from '@/data/mockData';
+import { MOCK_WISHLIST } from '@/data/mockData';
+import { getBook, addReview } from '@/api/books';
+import { addToWishlist, removeFromWishlist, getMyWishlist, createReservation } from '@/api/users';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
 
-function StarRating({ rating }) {
+function StarRating({ rating, size = 14 }) {
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {[1, 2, 3, 4, 5].map((s) => (
         <MaterialCommunityIcons
           key={s}
           name={s <= Math.round(rating) ? 'star' : 'star-outline'}
-          size={14}
+          size={size}
           color="#F59E0B"
         />
       ))}
@@ -38,20 +37,35 @@ function StarRating({ rating }) {
   );
 }
 
+function StarPicker({ rating, onSelect }) {
+  return (
+    <View style={reviewModal.starRow}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <TouchableOpacity key={s} onPress={() => onSelect(s)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <MaterialCommunityIcons
+            name={s <= rating ? 'star' : 'star-outline'}
+            size={36}
+            color="#F59E0B"
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 function ReviewRow({ review }) {
+  const name = review.full_name || review.reviewer_name || 'Reader';
   const date = new Date(review.created_at).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
   return (
     <View style={styles.reviewRow}>
       <View style={styles.reviewAvatar}>
-        <Text style={styles.reviewAvatarText}>
-          {review.reviewer_name.charAt(0).toUpperCase()}
-        </Text>
+        <Text style={styles.reviewAvatarText}>{name.charAt(0).toUpperCase()}</Text>
       </View>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-          <Text style={styles.reviewerName}>{review.reviewer_name}</Text>
+          <Text style={styles.reviewerName}>{name}</Text>
           <Text style={styles.reviewDash}>—</Text>
           <StarRating rating={review.rating} />
         </View>
@@ -63,28 +77,85 @@ function ReviewRow({ review }) {
 }
 
 export default function BookDetailScreen({ book, onClose }) {
-  const [inWishlist, setInWishlist] = useState(
-    MOCK_WISHLIST.some((b) => b.book_id === book.book_id)
-  );
+  const [inWishlist, setInWishlist]           = useState(MOCK_WISHLIST.some((b) => b.book_id === book.book_id));
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [reviews, setReviews]                 = useState([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating]       = useState(5);
+  const [reviewText, setReviewText]           = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const available = book.available_copies > 0;
 
-  function handleWishlistToggle() {
-    setInWishlist((prev) => !prev);
-    Alert.alert(
-      inWishlist ? 'Removed' : 'Saved',
-      inWishlist
-        ? `"${book.title}" removed from wishlist.`
-        : `"${book.title}" added to your wishlist.`
-    );
+  useEffect(() => {
+    async function loadDetails() {
+      try {
+        const { data } = await getBook(book.book_id);
+        if (Array.isArray(data.reviews)) setReviews(data.reviews);
+      } catch { /* keep empty */ }
+    }
+    async function checkWishlist() {
+      try {
+        const { data } = await getMyWishlist();
+        if (Array.isArray(data)) setInWishlist(data.some((b) => b.book_id === book.book_id));
+      } catch { /* keep mock default */ }
+    }
+    loadDetails();
+    checkWishlist();
+  }, [book.book_id]);
+
+  async function handleWishlistToggle() {
+    if (wishlistLoading) return;
+    setWishlistLoading(true);
+    try {
+      if (inWishlist) {
+        await removeFromWishlist(book.book_id);
+        setInWishlist(false);
+      } else {
+        await addToWishlist(book.book_id);
+        setInWishlist(true);
+      }
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.error || 'Could not update wishlist.');
+    } finally {
+      setWishlistLoading(false);
+    }
   }
 
-  function handleReserve() {
+  async function handleReserve() {
     if (!available) {
-      Alert.alert('Not available', 'All copies are currently borrowed.');
+      Alert.alert('Not Available', 'All copies are currently borrowed.');
       return;
     }
-    Alert.alert('Reserve Book', `"${book.title}" has been reserved. Collect it at the front desk.`);
+    try {
+      await createReservation(book.book_id);
+      Alert.alert('Reserved!', `"${book.title}" is reserved for you. Collect it at the front desk within 48 hours.`);
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Could not reserve book.';
+      Alert.alert('Reservation Failed', msg);
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (!reviewText.trim()) {
+      Alert.alert('Missing Review', 'Please write something before submitting.');
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      await addReview(book.book_id, { rating: reviewRating, review_text: reviewText.trim() });
+      setShowReviewModal(false);
+      setReviewText('');
+      setReviewRating(5);
+      Alert.alert('Review Submitted', 'Thank you for your feedback!');
+      // Reload reviews
+      const { data } = await getBook(book.book_id);
+      if (Array.isArray(data.reviews)) setReviews(data.reviews);
+    } catch (err) {
+      Alert.alert('Cannot Submit', err.response?.data?.error || 'Something went wrong.');
+    } finally {
+      setReviewSubmitting(false);
+    }
   }
 
   return (
@@ -101,7 +172,7 @@ export default function BookDetailScreen({ book, onClose }) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
 
-        {/* ── Hero: cover LEFT, info RIGHT ── */}
+        {/* ── Hero ── */}
         <View style={styles.hero}>
           <Image
             source={book.cover_image ? { uri: book.cover_image } : PLACEHOLDER}
@@ -111,13 +182,11 @@ export default function BookDetailScreen({ book, onClose }) {
           <View style={styles.heroInfo}>
             <Text style={styles.title}>{book.title}</Text>
             <Text style={styles.authorYear}>
-              {book.author}{book.published_year ? `.${book.published_year}` : ''}
+              {book.author}{book.published_year ? ` · ${book.published_year}` : ''}
             </Text>
             {book.avg_rating > 0 && <StarRating rating={book.avg_rating} />}
             <View style={styles.copiesRow}>
-              <Text style={styles.copiesText}>
-                {book.available_copies}/{book.total_copies} copies
-              </Text>
+              <Text style={styles.copiesText}>{book.available_copies}/{book.total_copies} copies</Text>
               <View style={[styles.availDot, { backgroundColor: available ? '#10B981' : '#EF4444' }]} />
             </View>
           </View>
@@ -136,11 +205,15 @@ export default function BookDetailScreen({ book, onClose }) {
           <TouchableOpacity
             style={[styles.wishlistBtn, inWishlist && styles.wishlistBtnActive]}
             onPress={handleWishlistToggle}
+            disabled={wishlistLoading}
             activeOpacity={0.8}
           >
-            <Text style={[styles.wishlistBtnText, inWishlist && styles.wishlistBtnTextActive]}>
-              {inWishlist ? '♥ Saved' : '+ Wishlist'}
-            </Text>
+            {wishlistLoading
+              ? <ActivityIndicator size="small" color="#EF4444" />
+              : <Text style={[styles.wishlistBtnText, inWishlist && styles.wishlistBtnTextActive]}>
+                  {inWishlist ? '♥ Saved' : '+ Wishlist'}
+                </Text>
+            }
           </TouchableOpacity>
         </View>
 
@@ -155,27 +228,74 @@ export default function BookDetailScreen({ book, onClose }) {
         {/* ── Reviews ── */}
         <View style={styles.reviewsSection}>
           <Text style={styles.reviewsTitle}>Reviews</Text>
-          {MOCK_REVIEWS.map((r, i) => (
-            <View key={r.review_id}>
-              <ReviewRow review={r} />
-              {i < MOCK_REVIEWS.length - 1 && <View style={styles.reviewDivider} />}
-            </View>
-          ))}
-          {MOCK_REVIEWS.length === 0 && (
-            <Text style={styles.noReviews}>No reviews yet.</Text>
-          )}
+          {reviews.length > 0
+            ? reviews.map((r, i) => (
+                <View key={r.review_id}>
+                  <ReviewRow review={r} />
+                  {i < reviews.length - 1 && <View style={styles.reviewDivider} />}
+                </View>
+              ))
+            : <Text style={styles.noReviews}>No reviews yet. Be the first!</Text>
+          }
         </View>
 
         {/* ── Write a Review ── */}
         <TouchableOpacity
           style={styles.writeReviewBtn}
-          onPress={() => Alert.alert('Write a Review', 'Review functionality coming soon.')}
+          onPress={() => setShowReviewModal(true)}
           activeOpacity={0.8}
         >
           <Text style={styles.writeReviewText}>Write a Review</Text>
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* ── Write Review bottom sheet ── */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={reviewModal.overlay}>
+            <TouchableOpacity style={reviewModal.backdrop} onPress={() => setShowReviewModal(false)} activeOpacity={1} />
+            <View style={reviewModal.sheet}>
+              <View style={reviewModal.handle} />
+              <Text style={reviewModal.title}>Write a Review</Text>
+              <Text style={reviewModal.subtitle}>{book.title}</Text>
+              <StarPicker rating={reviewRating} onSelect={setReviewRating} />
+              <TextInput
+                style={reviewModal.input}
+                placeholder="Share your thoughts about this book..."
+                placeholderTextColor="#9CA3AF"
+                value={reviewText}
+                onChangeText={setReviewText}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+              <TouchableOpacity
+                style={[reviewModal.submitBtn, reviewSubmitting && { opacity: 0.6 }]}
+                onPress={handleSubmitReview}
+                disabled={reviewSubmitting}
+                activeOpacity={0.85}
+              >
+                {reviewSubmitting
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={reviewModal.submitText}>Submit Review</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity style={reviewModal.cancelBtn} onPress={() => setShowReviewModal(false)} activeOpacity={0.85}>
+                <Text style={reviewModal.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -184,12 +304,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F5F5F5' },
 
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F5F5F5',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#F5F5F5',
   },
   backBtn: { padding: 4 },
   topBarTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
@@ -250,4 +366,37 @@ const styles = StyleSheet.create({
     paddingVertical: 15, alignItems: 'center', marginBottom: 8,
   },
   writeReviewText: { fontSize: 15, fontWeight: '600', color: '#111827' },
+});
+
+const reviewModal = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12,
+  },
+  handle: {
+    width: 40, height: 4, backgroundColor: '#D1D5DB',
+    borderRadius: 2, alignSelf: 'center', marginBottom: 20,
+  },
+  title:    { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
+  starRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 20 },
+  input: {
+    backgroundColor: '#F3F4F6', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 14, color: '#111827', minHeight: 100,
+    marginBottom: 20,
+  },
+  submitBtn: {
+    backgroundColor: '#111827', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+  },
+  submitText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  cancelBtn: {
+    backgroundColor: '#F3F4F6', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
+  },
+  cancelText: { fontSize: 15, fontWeight: '600', color: '#374151' },
 });

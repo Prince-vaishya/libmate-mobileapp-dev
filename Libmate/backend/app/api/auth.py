@@ -56,14 +56,19 @@ def login():
         'profile_picture': user['profile_picture']
     }
     
+    m = dict(membership._mapping) if membership else None
     return jsonify({
         'token': access_token,
         'user': user_data,
         'has_active_membership': membership is not None,
         'membership': {
-            'card_number': membership[13] if membership else None,
-            'expiry_date': str(membership[7]) if membership else None
-        } if membership else None
+            'card_number':    m['card_number'],
+            'expiry_date':    str(m['expiry_date'])    if m['expiry_date']    else None,
+            'start_date':     str(m['start_date'])     if m['start_date']     else None,
+            'status':         m['status'],
+            'payment_status': m['payment_status'],
+            'duration_months': m['duration_months'],
+        } if m else None
     }), 200
 
 
@@ -170,13 +175,18 @@ def get_current_user():
         'profile_picture': user['profile_picture']
     }
     
+    m = dict(membership._mapping) if membership else None
     return jsonify({
         'user': user_data,
         'has_active_membership': membership is not None,
         'membership': {
-            'card_number': membership[13] if membership else None,
-            'expiry_date': str(membership[7]) if membership else None
-        } if membership else None
+            'card_number':    m['card_number'],
+            'expiry_date':    str(m['expiry_date'])    if m['expiry_date']    else None,
+            'start_date':     str(m['start_date'])     if m['start_date']     else None,
+            'status':         m['status'],
+            'payment_status': m['payment_status'],
+            'duration_months': m['duration_months'],
+        } if m else None
     }), 200
 
 

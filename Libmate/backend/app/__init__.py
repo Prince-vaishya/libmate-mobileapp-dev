@@ -1,7 +1,9 @@
+from dotenv import load_dotenv
+load_dotenv()  # Must run before Config is imported so os.getenv() reads .env values
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from dotenv import load_dotenv
 import os
 from datetime import timedelta
 import schedule
@@ -10,8 +12,6 @@ import time
 
 from .extensions import db
 from .config import Config
-
-load_dotenv()
 
 def create_app(config_class=Config):
     app = Flask(__name__)

@@ -153,6 +153,113 @@ def remove_from_wishlist(book_id):
     return jsonify({'message': 'Removed from wishlist'}), 200
 
 
+@users_bp.route('/me/notifications', methods=['GET'])
+@jwt_required()
+def get_my_notifications():
+    user_id = int(get_jwt_identity())
+    try:
+        result = db.session.execute(
+            text("SELECT * FROM notifications WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 50"),
+            {'user_id': user_id}
+        )
+        notifications = [dict(row._mapping) for row in result]
+        return jsonify(notifications), 200
+    except Exception:
+        return jsonify([]), 200
+
+
+@users_bp.route('/me/notifications/read-all', methods=['PUT'])
+@jwt_required()
+def mark_all_notifications_read():
+    user_id = int(get_jwt_identity())
+    try:
+        db.session.execute(
+            text("UPDATE notifications SET is_read = TRUE WHERE user_id = :user_id"),
+            {'user_id': user_id}
+        )
+        db.session.commit()
+    except Exception:
+        pass
+    return jsonify({'message': 'All notifications marked as read'}), 200
+
+
+@users_bp.route('/me/notifications/<int:notification_id>/read', methods=['PUT'])
+@jwt_required()
+def mark_notification_read(notification_id):
+    user_id = int(get_jwt_identity())
+    try:
+        db.session.execute(
+            text("UPDATE notifications SET is_read = TRUE WHERE notification_id = :nid AND user_id = :user_id"),
+            {'nid': notification_id, 'user_id': user_id}
+        )
+        db.session.commit()
+    except Exception:
+        pass
+    return jsonify({'message': 'Notification marked as read'}), 200
+
+
+@users_bp.route('/me/reservations', methods=['GET'])
+@jwt_required()
+def get_my_reservations():
+    user_id = int(get_jwt_identity())
+    result = db.session.execute(
+        text("""
+            SELECT r.reservation_id, r.book_id, r.reserved_at, r.expires_at, r.status,
+                   b.title, b.author, b.cover_image, b.available_copies, b.total_copies
+            FROM reservations r
+            JOIN books b ON r.book_id = b.book_id
+            WHERE r.user_id = :user_id AND r.status = 'pending'
+            ORDER BY r.reserved_at DESC
+        """),
+        {'user_id': user_id}
+    )
+    reservations = [dict(row._mapping) for row in result]
+    return jsonify(reservations), 200
+
+
+@users_bp.route('/me/reservations', methods=['POST'])
+@jwt_required()
+def create_reservation():
+    user_id = int(get_jwt_identity())
+    data = request.get_json()
+    book_id = data.get('book_id')
+
+    if not book_id:
+        return jsonify({'error': 'book_id is required'}), 400
+
+    book = db.session.execute(
+        text("SELECT book_id, available_copies FROM books WHERE book_id = :book_id AND is_archived = FALSE"),
+        {'book_id': book_id}
+    ).first()
+
+    if not book:
+        return jsonify({'error': 'Book not found'}), 404
+
+    if book['available_copies'] <= 0:
+        return jsonify({'error': 'No copies available for reservation'}), 409
+
+    existing = db.session.execute(
+        text("""
+            SELECT reservation_id FROM reservations
+            WHERE user_id = :user_id AND book_id = :book_id AND status = 'pending'
+        """),
+        {'user_id': user_id, 'book_id': book_id}
+    ).first()
+
+    if existing:
+        return jsonify({'error': 'You already have a reservation for this book'}), 409
+
+    db.session.execute(
+        text("""
+            INSERT INTO reservations (user_id, book_id, expires_at)
+            VALUES (:user_id, :book_id, DATE_ADD(NOW(), INTERVAL 48 HOUR))
+        """),
+        {'user_id': user_id, 'book_id': book_id}
+    )
+    db.session.commit()
+    return jsonify({'message': 'Book reserved successfully. Collect within 48 hours.'}), 201
+
+
 @users_bp.route('/me/recommendations', methods=['GET'])
 @jwt_required()
 def get_recommendations():
