@@ -27,7 +27,7 @@ import { login, register } from '@/api/auth';
 import { getErrorMessage } from '@/api/client';
 import useAuthStore from '@/store/authStore';
 
-const LOGO = require('../../../assets/icon.png');
+const LOGO = require('../../../assets/logo_icon.png');
 
 // ── Reusable labelled input ────────────────────────────────────
 function Field({ label, error, ...inputProps }) {
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
 
   // Logo
   logoWrap: { alignItems: 'center', marginBottom: 20 },
-  logo:     { width: 80, height: 80, borderRadius: 16 },
+  logo:     { width: 96, height: 96 },
 
   // Title
   title:    { fontSize: 26, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 6 },

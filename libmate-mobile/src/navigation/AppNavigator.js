@@ -14,10 +14,10 @@
  *   LoginScreen already contains both Login and Register as internal tabs,
  *   so no stack navigator is needed for the auth flow.
  */
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View, Text, Image, StyleSheet, Platform } from 'react-native';
+import { Animated, Easing, View, Image, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import useAuthStore from '@/store/authStore';
@@ -30,7 +30,7 @@ import WishlistScreen from '@/screens/wishlist/WishlistScreen';
 import ProfileScreen  from '@/screens/profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
-const LOGO = require('../../assets/icon.png');
+const LOGO_MAIN = require('../../assets/logo_main.png');
 
 const TAB_ICONS = {
   Home:      'home-outline',
@@ -42,25 +42,78 @@ const TAB_ICONS = {
 
 // ── Splash screen (shown while checking stored token) ────────────
 function SplashView() {
+  const scale   = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const dotOp   = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      // 1. Logo pops in with a spring
+      Animated.parallel([
+        Animated.spring(scale, {
+          toValue: 1,
+          friction: 5,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      // 2. Dots fade in
+      Animated.timing(dotOp, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
     <View style={splashStyles.container}>
-      <Image source={LOGO} style={splashStyles.logo} resizeMode="contain" />
-      <Text style={splashStyles.title}>LibMate</Text>
-      <Text style={splashStyles.sub}>Smart Library Management System</Text>
-      <Text style={splashStyles.sub}>BSc (Hons) Artificial Intelligence</Text>
-      <ActivityIndicator size="small" color="#4F46E5" style={{ marginTop: 24 }} />
+      <Animated.View style={{ opacity, transform: [{ scale }] }}>
+        <Image source={LOGO_MAIN} style={splashStyles.logo} resizeMode="contain" />
+      </Animated.View>
+
+      <Animated.View style={[splashStyles.dotsRow, { opacity: dotOp }]}>
+        {[0, 1, 2].map((i) => (
+          <BounceDot key={i} delay={i * 150} />
+        ))}
+      </Animated.View>
     </View>
+  );
+}
+
+function BounceDot({ delay }) {
+  const y = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(y, { toValue: -8, duration: 350, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.timing(y, { toValue: 0,  duration: 350, easing: Easing.in(Easing.quad),  useNativeDriver: true }),
+        Animated.delay(300),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
+  return (
+    <Animated.View style={[splashStyles.dot, { transform: [{ translateY: y }] }]} />
   );
 }
 
 const splashStyles = StyleSheet.create({
   container: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: '#F5F5F5', paddingHorizontal: 40,
+    backgroundColor: '#FFFFFF', gap: 40,
   },
-  logo:  { width: 88, height: 88, borderRadius: 20, marginBottom: 20 },
-  title: { fontSize: 32, fontWeight: '800', color: '#111827', marginBottom: 8 },
-  sub:   { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  logo:    { width: 260, height: 260 },
+  dotsRow: { flexDirection: 'row', gap: 8 },
+  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4F46E5' },
 });
 
 // ── Main tab navigator (shown when logged in) ─────────────────────
