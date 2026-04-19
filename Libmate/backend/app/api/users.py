@@ -227,13 +227,15 @@ def create_reservation():
     if not book_id:
         return jsonify({'error': 'book_id is required'}), 400
 
-    book = db.session.execute(
+    book_row = db.session.execute(
         text("SELECT book_id, available_copies FROM books WHERE book_id = :book_id AND is_archived = FALSE"),
         {'book_id': book_id}
     ).first()
 
-    if not book:
+    if not book_row:
         return jsonify({'error': 'Book not found'}), 404
+
+    book = dict(book_row._mapping)
 
     if book['available_copies'] <= 0:
         return jsonify({'error': 'No copies available for reservation'}), 409
@@ -251,8 +253,8 @@ def create_reservation():
 
     db.session.execute(
         text("""
-            INSERT INTO reservations (user_id, book_id, expires_at)
-            VALUES (:user_id, :book_id, DATE_ADD(NOW(), INTERVAL 48 HOUR))
+            INSERT INTO reservations (user_id, book_id, reserved_at, expires_at, status)
+            VALUES (:user_id, :book_id, NOW(), DATE_ADD(NOW(), INTERVAL 48 HOUR), 'pending')
         """),
         {'user_id': user_id, 'book_id': book_id}
     )

@@ -16,9 +16,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { MOCK_WISHLIST } from '@/data/mockData';
 import { getBook, addReview } from '@/api/books';
-import { addToWishlist, removeFromWishlist, getMyWishlist, createReservation } from '@/api/users';
+import { addToWishlist, removeFromWishlist, createReservation } from '@/api/users';
+import useWishlistStore from '@/store/wishlistStore';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
 
@@ -77,7 +77,8 @@ function ReviewRow({ review }) {
 }
 
 export default function BookDetailScreen({ book, onClose }) {
-  const [inWishlist, setInWishlist]           = useState(MOCK_WISHLIST.some((b) => b.book_id === book.book_id));
+  const { isInWishlist, addBook, removeBook } = useWishlistStore();
+  const [inWishlist, setInWishlist]           = useState(() => isInWishlist(book.book_id));
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [reviews, setReviews]                 = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -94,14 +95,7 @@ export default function BookDetailScreen({ book, onClose }) {
         if (Array.isArray(data.reviews)) setReviews(data.reviews);
       } catch { /* keep empty */ }
     }
-    async function checkWishlist() {
-      try {
-        const { data } = await getMyWishlist();
-        if (Array.isArray(data)) setInWishlist(data.some((b) => b.book_id === book.book_id));
-      } catch { /* keep mock default */ }
-    }
     loadDetails();
-    checkWishlist();
   }, [book.book_id]);
 
   async function handleWishlistToggle() {
@@ -111,9 +105,11 @@ export default function BookDetailScreen({ book, onClose }) {
       if (inWishlist) {
         await removeFromWishlist(book.book_id);
         setInWishlist(false);
+        removeBook(book.book_id);          // update global store instantly
       } else {
         await addToWishlist(book.book_id);
         setInWishlist(true);
+        addBook(book.book_id);             // update global store instantly
       }
     } catch (err) {
       Alert.alert('Error', err.response?.data?.error || 'Could not update wishlist.');

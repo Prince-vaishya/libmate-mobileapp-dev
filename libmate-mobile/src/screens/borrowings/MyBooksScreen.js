@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { MOCK_ACTIVE_BORROWINGS, MOCK_BORROWING_HISTORY, MOCK_WISHLIST } from '@/data/mockData';
 import { getMyBorrowings, getMyHistory, getMyWishlist, getMyReservations } from '@/api/users';
@@ -240,34 +241,37 @@ export default function MyBooksScreen() {
   const [wishlist,      setWishlist]      = useState(MOCK_WISHLIST);
   const [reservations,  setReservations]  = useState([]);
 
-  useEffect(() => {
-    async function fetchData() {
-      const [bRes, hRes, wRes, rRes] = await Promise.allSettled([
-        getMyBorrowings(),
-        getMyHistory(),
-        getMyWishlist(),
-        getMyReservations(),
-      ]);
-      if (bRes.status === 'fulfilled') {
-        const d = bRes.value.data;
-        if (Array.isArray(d) && d.length > 0) setBorrowings(d);
-      }
-      if (hRes.status === 'fulfilled') {
-        const d = hRes.value.data;
-        const arr = Array.isArray(d) ? d : d?.history;
-        if (Array.isArray(arr) && arr.length > 0) setHistory(arr);
-      }
-      if (wRes.status === 'fulfilled') {
-        const d = wRes.value.data;
-        if (Array.isArray(d) && d.length > 0) setWishlist(d);
-      }
-      if (rRes.status === 'fulfilled') {
-        const d = rRes.value.data;
-        if (Array.isArray(d)) setReservations(d);
-      }
+  async function fetchData() {
+    const [bRes, hRes, wRes, rRes] = await Promise.allSettled([
+      getMyBorrowings(),
+      getMyHistory(),
+      getMyWishlist(),
+      getMyReservations(),
+    ]);
+    if (bRes.status === 'fulfilled') {
+      const d = bRes.value.data;
+      if (Array.isArray(d)) setBorrowings(d.length > 0 ? d : MOCK_ACTIVE_BORROWINGS);
     }
-    fetchData();
-  }, []);
+    if (hRes.status === 'fulfilled') {
+      const d = hRes.value.data;
+      const arr = Array.isArray(d) ? d : d?.history;
+      if (Array.isArray(arr)) setHistory(arr.length > 0 ? arr : MOCK_BORROWING_HISTORY);
+    }
+    if (wRes.status === 'fulfilled') {
+      const d = wRes.value.data;
+      if (Array.isArray(d)) setWishlist(d.length > 0 ? d : MOCK_WISHLIST);
+    }
+    if (rRes.status === 'fulfilled') {
+      const d = rRes.value.data;
+      if (Array.isArray(d)) setReservations(d);
+    }
+  }
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   function renderContent() {
     switch (activeTab) {

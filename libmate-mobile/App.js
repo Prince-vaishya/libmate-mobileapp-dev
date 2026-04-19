@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
 import useAuthStore from './src/store/authStore';
+import useWishlistStore from './src/store/wishlistStore';
 import { MOCK_USER, MOCK_MEMBERSHIP } from './src/data/mockData';
 
 // ─────────────────────────────────────────────────────────────────
@@ -13,6 +14,7 @@ const MOCK_MODE = false;
 
 export default function App() {
   const { setAuth, clearAuth, setLoading } = useAuthStore();
+  const { setWishlist: seedWishlist, reset: resetWishlist } = useWishlistStore();
 
   useEffect(() => {
     async function bootstrap() {
@@ -28,8 +30,15 @@ export default function App() {
         if (token) {
           const { data } = await getMe();
           setAuth(token, data.user, data.membership, data.has_active_membership);
+          // Seed wishlist store so BookDetailScreen knows initial heart state
+          try {
+            const { getMyWishlist } = await import('./src/api/users');
+            const { data: wl } = await getMyWishlist();
+            if (Array.isArray(wl)) seedWishlist(wl);
+          } catch { /* non-critical */ }
         }
       } catch {
+        resetWishlist();
         await clearAuth();
       } finally {
         setLoading(false);
