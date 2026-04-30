@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// src/components/Layout/Navbar.jsx
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
@@ -6,11 +7,18 @@ import {
   FaHeart, FaFire, FaStar, FaCrown, FaUserPlus,
   FaHome, FaUserCircle
 } from 'react-icons/fa';
+import logoNav from '../../assets/logo_navx360.svg';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [photoTimestamp, setPhotoTimestamp] = useState(Date.now());
+
+  // Update timestamp when user photo changes
+  useEffect(() => {
+    setPhotoTimestamp(Date.now());
+  }, [user?.profile_picture]);
 
   const handleLogout = () => {
     logout();
@@ -22,18 +30,17 @@ const Navbar = () => {
     if (!user) return 'U';
     const fullName = user.full_name || user.name || '';
     if (fullName) {
-      return fullName.split(' ')[0]; // Return first name
+      return fullName.split(' ')[0];
     }
     return 'U';
   };
 
-  const getUserInitial = () => {
-    if (!user) return 'U';
-    const fullName = user.full_name || user.name || '';
-    if (fullName) {
-      return fullName.charAt(0).toUpperCase();
+  // Get profile photo URL
+  const getProfilePhotoUrl = () => {
+    if (user?.profile_picture) {
+      return `http://localhost:5000/uploads/photos/${user.profile_picture}?t=${photoTimestamp}`;
     }
-    return 'U';
+    return null;
   };
 
   // Quick links for all users
@@ -55,11 +62,12 @@ const Navbar = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#EAE0D0] h-16 px-4 md:px-8 shadow-sm">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 shrink-0 group">
-            <div className="w-9 h-9 bg-gradient-to-br from-[#2C1F14] to-[#4A3728] rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300">
-              <span className="text-[#FAF7F2] font-serif font-bold text-lg">S</span>
-            </div>
-            <span className="font-serif text-xl font-bold text-[#2C1F14]">SmartLib</span>
+          <Link to="/" className="flex items-center shrink-0 group">
+            <img 
+              src={logoNav} 
+              alt="LibMate Logo" 
+              className="h-14 w-auto group-hover:scale-105 transition-transform duration-300"
+            />
           </Link>
 
           {/* Quick Links */}
@@ -105,12 +113,30 @@ const Navbar = () => {
                   <FaBell className="text-[#4A3728] text-lg" />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-[#B85450] rounded-full ring-2 ring-[#FAF7F2]"></span>
                 </Link>
-                <Link to="/my-books" className="flex items-center gap-2 px-3 py-2 hover:bg-[#F3EDE3] rounded-full transition">
-                  <div className="w-8 h-8 bg-gradient-to-br from-[#2C1F14] to-[#4A3728] rounded-full flex items-center justify-center">
-                    <span className="text-[#FAF7F2] text-sm font-semibold">{getUserInitial()}</span>
+                
+                {/* Profile Icon with Photo */}
+                <Link to="/profile" className="flex items-center gap-2 px-3 py-2 hover:bg-[#F3EDE3] rounded-full transition">
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-[#2C1F14] to-[#4A3728] flex items-center justify-center">
+                    {getProfilePhotoUrl() ? (
+                      <img 
+                        src={getProfilePhotoUrl()} 
+                        alt={user?.full_name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = `<span class="text-[#FAF7F2] text-sm font-semibold">${user?.full_name?.charAt(0) || 'U'}</span>`;
+                        }}
+                      />
+                    ) : (
+                      <span className="text-[#FAF7F2] text-sm font-semibold">
+                        {user?.full_name?.charAt(0) || user?.name?.charAt(0) || 'U'}
+                      </span>
+                    )}
                   </div>
                   <span className="text-sm font-medium text-[#4A3728] hidden md:block">{getUserName()}</span>
                 </Link>
+                
                 {user?.role === 'admin' && (
                   <Link to="/admin" className="px-3 py-1.5 text-sm font-medium text-[#C4895A] bg-[#C4895A]/10 rounded-full hover:bg-[#C4895A]/20 transition">
                     Admin
@@ -144,6 +170,9 @@ const Navbar = () => {
       {mobileMenuOpen && (
         <div className="fixed top-16 left-0 right-0 z-40 bg-[#FAF7F2] border-b border-[#EAE0D0] shadow-xl p-4 md:hidden max-h-[calc(100vh-64px)] overflow-y-auto">
           <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-center mb-3 pb-2 border-b border-[#EAE0D0]">
+              <img src={logoNav} alt="LibMate Logo" className="h-8 w-auto" />
+            </div>
             <div className="text-xs font-semibold text-[#9A8478] uppercase tracking-wider px-3 mb-2">Quick Links</div>
             {quickLinks.map((link, idx) => {
               const Icon = link.icon;

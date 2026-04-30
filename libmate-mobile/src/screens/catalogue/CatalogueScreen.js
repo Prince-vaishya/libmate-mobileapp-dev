@@ -33,8 +33,8 @@ function BookGridCard({ book, onPress }) {
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={2}>{book.title}</Text>
         <Text style={styles.cardAuthor} numberOfLines={1}>{book.author}</Text>
-        <View style={[styles.availBadge, { backgroundColor: available ? '#D1FAE5' : '#FEE2E2' }]}>
-          <Text style={[styles.availText, { color: available ? '#065F46' : '#991B1B' }]}>
+        <View style={[styles.availBadge, { backgroundColor: available ? '#D7EDD9' : '#FADADD' }]}>
+          <Text style={[styles.availText, { color: available ? '#4A7C59' : '#B85450' }]}>
             {available ? 'Available' : 'Unavailable'}
           </Text>
         </View>
@@ -47,7 +47,7 @@ export default function CatalogueScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('All');
   const [selectedBook, setSelectedBook] = useState(null);
-  const [books, setBooks]   = useState(MOCK_BOOKS);
+  const [books, setBooks] = useState(MOCK_BOOKS);
   const [genres, setGenres] = useState(MOCK_GENRES);
 
   useEffect(() => {
@@ -96,10 +96,11 @@ export default function CatalogueScreen() {
 
       {/* ── Search bar ── */}
       <View style={styles.searchRow}>
+        <MaterialCommunityIcons name="magnify" size={18} color="#9A8478" style={{ marginRight: 6 }} />
         <TextInput
           style={styles.searchInput}
           placeholder="Title, author, ISBN or genre..."
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#9A8478"
           value={searchQuery}
           onChangeText={setSearchQuery}
           returnKeyType="search"
@@ -108,13 +109,14 @@ export default function CatalogueScreen() {
       </View>
       <View style={styles.divider} />
 
-      {/* ── Genre chips ── */}
+      {/* ── Genre chips — uses live `genres` state (fixed) ── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chipsRow}
+        style={styles.chipsScroll}
       >
-        {MOCK_GENRES.map((genre) => {
+        {genres.map((genre) => {
           const isActive = genre === selectedGenre;
           return (
             <TouchableOpacity
@@ -146,7 +148,7 @@ export default function CatalogueScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <MaterialCommunityIcons name="book-search" size={48} color="#D1D5DB" />
+            <MaterialCommunityIcons name="book-search" size={48} color="#D4C5B0" />
             <Text style={styles.emptyTitle}>No books found</Text>
             <Text style={styles.emptySub}>Try a different search or genre</Text>
           </View>
@@ -172,41 +174,47 @@ export default function CatalogueScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F5F5' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
 
   header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#2C1F14' },
 
   searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 16,
-    backgroundColor: '#EBEBEB',
+    backgroundColor: '#EAE0D0',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     marginBottom: 12,
   },
-  searchInput: { fontSize: 15, color: '#111827' },
+  searchInput: { flex: 1, fontSize: 15, color: '#2C1F14' },
 
-  divider: { height: 1, backgroundColor: '#D1D5DB' },
+  divider: { height: 1, backgroundColor: '#EAE0D0' },
 
-  chipsRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#DEDEDE' },
-  chipActive: { backgroundColor: '#4F46E5' },
-  chipText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  chipTextActive: { color: '#fff' },
+  chipsScroll: { flexGrow: 0, height: 50 },
+  chipsRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: 'flex-start' },
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, backgroundColor: '#EAE0D0',
+  },
+  chipActive: { backgroundColor: '#2C1F14' },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#2C1F14' },
+  chipTextActive: { color: '#FAF7F2' },
 
   grid: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
   row: { justifyContent: 'space-between', marginBottom: 12 },
 
-  card: { width: CARD_WIDTH, backgroundColor: '#E8E8E8', borderRadius: 14, overflow: 'hidden' },
-  cardCover: { width: '100%', height: 155, backgroundColor: '#C4C4C4' },
+  card: { width: CARD_WIDTH, backgroundColor: '#F3EDE3', borderRadius: 14, overflow: 'hidden' },
+  cardCover: { width: '100%', height: 155, backgroundColor: '#D4C5B0' },
   cardInfo: { padding: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  cardAuthor: { fontSize: 12, color: '#6B7280', marginBottom: 8 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  cardAuthor: { fontSize: 12, color: '#9A8478', marginBottom: 8 },
   availBadge: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   availText: { fontSize: 11, fontWeight: '600' },
 
   empty: { alignItems: 'center', paddingTop: 60 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginTop: 16 },
-  emptySub: { fontSize: 14, color: '#9CA3AF', marginTop: 6 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#4A3728', marginTop: 16 },
+  emptySub: { fontSize: 14, color: '#9A8478', marginTop: 6 },
 });

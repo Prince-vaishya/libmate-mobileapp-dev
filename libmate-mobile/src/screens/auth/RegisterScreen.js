@@ -138,7 +138,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   inner: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40 },
-  title: { fontSize: 28, fontWeight: '700', color: '#4F46E5', marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: '700', color: '#2C1F14', marginBottom: 4 },
   subtitle: { fontSize: 15, color: '#6B7280', marginBottom: 28 },
   field: { marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   inputError: { borderColor: '#EF4444' },
   errorText: { fontSize: 12, color: '#EF4444', marginTop: 4 },
   button: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#2C1F14',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -166,5 +166,5 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   link: { alignItems: 'center', marginTop: 24 },
   linkText: { fontSize: 14, color: '#6B7280' },
-  linkBold: { color: '#4F46E5', fontWeight: '600' },
+  linkBold: { color: '#2C1F14', fontWeight: '600' },
 });

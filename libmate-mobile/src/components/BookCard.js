@@ -16,7 +16,6 @@ export default function BookCard({ book, onPress, horizontal = false }) {
   const available = book.available_copies > 0;
 
   if (horizontal) {
-    // Compact card for horizontal scroll rows
     return (
       <TouchableOpacity style={styles.hCard} onPress={onPress} activeOpacity={0.8}>
         <Image
@@ -26,13 +25,12 @@ export default function BookCard({ book, onPress, horizontal = false }) {
         />
         <View style={styles.hInfo}>
           <Text style={styles.hTitle} numberOfLines={2}>{book.title}</Text>
-          <Text style={styles.hAuthor} numberOfLines={1}>{book.author}</Text>
-          {book.genre ? (
-            <View style={styles.genrePill}>
-              <Text style={styles.genreText}>{book.genre}</Text>
-            </View>
-          ) : null}
-          <View style={[styles.availDot, { backgroundColor: available ? '#10B981' : '#EF4444' }]} />
+          <Text style={styles.hAuthor} numberOfLines={1} ellipsizeMode="tail">{book.author}</Text>
+          <View style={[styles.hAvailBadge, { backgroundColor: available ? '#D7EDD9' : '#FADADD' }]}>
+            <Text style={[styles.hAvailText, { color: available ? '#4A7C59' : '#B85450' }]}>
+              {available ? 'Available' : 'Unavailable'}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -109,23 +107,14 @@ const styles = StyleSheet.create({
   hCard: {
     width: 140,
     marginRight: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.07,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: '#F3EDE3',
+    borderRadius: 14,
     overflow: 'hidden',
   },
-  hCover: { width: '100%', height: 180, backgroundColor: '#F3F4F6' },
-  hInfo: { padding: 8 },
-  hTitle: { fontSize: 12, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  hAuthor: { fontSize: 11, color: '#6B7280', marginBottom: 4 },
-  availDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 4,
-  },
+  hCover: { width: '100%', height: 180, backgroundColor: '#D4C5B0' },
+  hInfo: { padding: 10 },
+  hTitle: { fontSize: 12, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  hAuthor: { fontSize: 11, color: '#9A8478', marginBottom: 8 },
+  hAvailBadge: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
+  hAvailText: { fontSize: 11, fontWeight: '600' },
 });

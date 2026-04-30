@@ -29,7 +29,6 @@ import useAuthStore from '@/store/authStore';
 
 const LOGO = require('../../../assets/logo_icon.png');
 
-// ── Reusable labelled input ────────────────────────────────────
 function Field({ label, error, ...inputProps }) {
   const [secure, setSecure] = useState(inputProps.secureTextEntry || false);
 
@@ -39,7 +38,7 @@ function Field({ label, error, ...inputProps }) {
       <View style={styles.inputWrap}>
         <TextInput
           style={[styles.input, error && styles.inputError]}
-          placeholderTextColor="#BDBDBD"
+          placeholderTextColor="#9A8478"
           {...inputProps}
           secureTextEntry={secure}
         />
@@ -48,7 +47,7 @@ function Field({ label, error, ...inputProps }) {
             <MaterialCommunityIcons
               name={secure ? 'eye-outline' : 'eye-off-outline'}
               size={20}
-              color="#9CA3AF"
+              color="#9A8478"
             />
           </TouchableOpacity>
         )}
@@ -58,7 +57,6 @@ function Field({ label, error, ...inputProps }) {
   );
 }
 
-// ── LOGIN TAB ──────────────────────────────────────────────────
 function LoginForm() {
   const { setAuth } = useAuthStore();
   const [email, setEmail]       = useState('');
@@ -114,7 +112,6 @@ function LoginForm() {
         error={errors.password}
       />
 
-      {/* Forgot password */}
       <TouchableOpacity
         style={styles.forgotWrap}
         onPress={() => Alert.alert('Forgot Password', 'Please contact the library to reset your password.')}
@@ -122,7 +119,6 @@ function LoginForm() {
         <Text style={styles.forgotText}>Forget Password?</Text>
       </TouchableOpacity>
 
-      {/* LOGIN button */}
       <TouchableOpacity
         style={[styles.primaryBtn, loading && styles.btnDisabled]}
         onPress={handleLogin}
@@ -130,36 +126,33 @@ function LoginForm() {
         activeOpacity={0.85}
       >
         {loading
-          ? <ActivityIndicator color="#fff" />
+          ? <ActivityIndicator color="#FAF7F2" />
           : <Text style={styles.primaryBtnText}>LOGIN</Text>
         }
       </TouchableOpacity>
 
-      {/* OR divider */}
       <View style={styles.orRow}>
         <View style={styles.orLine} />
         <Text style={styles.orText}>OR</Text>
         <View style={styles.orLine} />
       </View>
 
-      {/* Biometrics button */}
       <TouchableOpacity
         style={styles.secondaryBtn}
         onPress={() => Alert.alert('Biometrics', 'Biometric login coming soon.')}
         activeOpacity={0.85}
       >
-        <MaterialCommunityIcons name="fingerprint" size={20} color="#374151" style={{ marginRight: 8 }} />
+        <MaterialCommunityIcons name="fingerprint" size={20} color="#4A3728" style={{ marginRight: 8 }} />
         <Text style={styles.secondaryBtnText}>Login with biometrics</Text>
       </TouchableOpacity>
     </>
   );
 }
 
-// ── REGISTER TAB ───────────────────────────────────────────────
 function RegisterForm() {
   const { setAuth } = useAuthStore();
-  const [form, setForm]     = useState({ full_name: '', email: '', phone: '', password: '', confirm_password: '' });
-  const [errors, setErrors] = useState({});
+  const [form, setForm]       = useState({ full_name: '', email: '', phone: '', password: '', confirm_password: '' });
+  const [errors, setErrors]   = useState({});
   const [loading, setLoading] = useState(false);
 
   function setField(key, value) {
@@ -169,12 +162,12 @@ function RegisterForm() {
 
   function validate() {
     const e = {};
-    if (!form.full_name.trim())                              e.full_name         = 'Full name is required';
-    if (!form.email.trim())                                  e.email             = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(form.email))              e.email             = 'Invalid email address';
-    if (!form.password)                                      e.password          = 'Password is required';
-    else if (form.password.length < 6)                       e.password          = 'At least 6 characters';
-    if (form.password !== form.confirm_password)             e.confirm_password  = 'Passwords do not match';
+    if (!form.full_name.trim())                              e.full_name        = 'Full name is required';
+    if (!form.email.trim())                                  e.email            = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(form.email))              e.email            = 'Invalid email address';
+    if (!form.password)                                      e.password         = 'Password is required';
+    else if (form.password.length < 6)                       e.password         = 'At least 6 characters';
+    if (form.password !== form.confirm_password)             e.confirm_password = 'Passwords do not match';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -213,7 +206,7 @@ function RegisterForm() {
         activeOpacity={0.85}
       >
         {loading
-          ? <ActivityIndicator color="#fff" />
+          ? <ActivityIndicator color="#FAF7F2" />
           : <Text style={styles.primaryBtnText}>CREATE ACCOUNT</Text>
         }
       </TouchableOpacity>
@@ -221,9 +214,8 @@ function RegisterForm() {
   );
 }
 
-// ── MAIN SCREEN ────────────────────────────────────────────────
 export default function LoginScreen() {
-  const [activeTab, setActiveTab] = useState('Login'); // 'Login' | 'Register'
+  const [activeTab, setActiveTab] = useState('Login');
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -236,19 +228,14 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Logo ── */}
           <View style={styles.logoWrap}>
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
           </View>
 
-          {/* ── Title ── */}
           <Text style={styles.title}>Welcome to Libmate</Text>
           <Text style={styles.subtitle}>Sign in to access the library</Text>
 
-          {/* ── Card ── */}
           <View style={styles.card}>
-
-            {/* Tab switcher */}
             <View style={styles.tabRow}>
               {['Login', 'Register'].map((tab) => (
                 <TouchableOpacity
@@ -266,11 +253,9 @@ export default function LoginScreen() {
             </View>
             <View style={styles.tabDivider} />
 
-            {/* Form */}
             <View style={styles.form}>
               {activeTab === 'Login' ? <LoginForm /> : <RegisterForm />}
             </View>
-
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -279,22 +264,19 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: '#F2F2F2' },
+  safe:   { flex: 1, backgroundColor: '#FAF7F2' },
   scroll: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 48 },
 
-  // Logo
   logoWrap: { alignItems: 'center', marginBottom: 20 },
   logo:     { width: 96, height: 96 },
 
-  // Title
-  title:    { fontSize: 26, fontWeight: '800', color: '#111827', textAlign: 'center', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', marginBottom: 28 },
+  title:    { fontSize: 26, fontWeight: '800', color: '#2C1F14', textAlign: 'center', marginBottom: 6 },
+  subtitle: { fontSize: 14, color: '#9A8478', textAlign: 'center', marginBottom: 28 },
 
-  // Card
   card: {
     backgroundColor: '#fff',
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: '#2C1F14',
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 12,
@@ -302,62 +284,58 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // Tabs
-  tabRow:       { flexDirection: 'row' },
-  tabBtn:       { flex: 1, alignItems: 'center', paddingVertical: 16, position: 'relative' },
-  tabText:      { fontSize: 15, fontWeight: '600', color: '#9CA3AF' },
-  tabTextActive:{ color: '#111827' },
+  tabRow:        { flexDirection: 'row' },
+  tabBtn:        { flex: 1, alignItems: 'center', paddingVertical: 16, position: 'relative' },
+  tabText:       { fontSize: 15, fontWeight: '600', color: '#9A8478' },
+  tabTextActive: { color: '#2C1F14' },
   tabUnderline: {
     position: 'absolute', bottom: 0, left: 20, right: 20,
-    height: 2, backgroundColor: '#111827', borderRadius: 1,
+    height: 2, backgroundColor: '#2C1F14', borderRadius: 1,
   },
-  tabDivider: { height: 1, backgroundColor: '#E5E7EB' },
+  tabDivider: { height: 1, backgroundColor: '#EAE0D0' },
 
   form: { padding: 20 },
 
-  // Field
   field:      { marginBottom: 14 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#6B7280', letterSpacing: 0.8, marginBottom: 6 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#9A8478', letterSpacing: 0.8, marginBottom: 6 },
   inputWrap:  { flexDirection: 'row', alignItems: 'center' },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F3EDE3',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
-    color: '#111827',
+    color: '#2C1F14',
   },
-  inputError: { borderWidth: 1.5, borderColor: '#EF4444' },
+  inputError: { borderWidth: 1.5, borderColor: '#B85450' },
   eyeBtn:     { position: 'absolute', right: 12 },
-  errorText:  { fontSize: 12, color: '#EF4444', marginTop: 4 },
+  errorText:  { fontSize: 12, color: '#B85450', marginTop: 4 },
 
-  // Forgot
   forgotWrap: { alignItems: 'flex-end', marginBottom: 16, marginTop: -4 },
-  forgotText: { fontSize: 13, color: '#6B7280' },
+  forgotText: { fontSize: 13, color: '#9A8478' },
 
-  // Buttons
   primaryBtn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#2C1F14',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 4,
   },
-  btnDisabled:     { opacity: 0.6 },
-  primaryBtnText:  { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
+  btnDisabled:    { opacity: 0.6 },
+  primaryBtnText: { color: '#FAF7F2', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
 
   orRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  orLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  orText: { fontSize: 13, color: '#9CA3AF', marginHorizontal: 12 },
+  orLine: { flex: 1, height: 1, backgroundColor: '#EAE0D0' },
+  orText: { fontSize: 13, color: '#9A8478', marginHorizontal: 12 },
 
   secondaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F3EDE3',
     borderRadius: 12,
     paddingVertical: 14,
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: '#4A3728' },
 });

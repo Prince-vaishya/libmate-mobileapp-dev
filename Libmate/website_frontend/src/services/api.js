@@ -149,6 +149,38 @@ export const usersAPI = {
     recommendationsAPI.getRecommendations(limit),
 };
 
+
+// ============ MEMBERSHIP API ============
+export const membershipAPI = {
+  // Apply for membership with file uploads
+  apply: async (formData) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/membership/apply`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+        // Don't set Content-Type - let browser set it with boundary for FormData
+      },
+      body: formData
+    });
+    
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Application failed');
+    }
+    return data;
+  },
+  
+  // Get membership status
+  getStatus: () => 
+    apiRequest('/membership/status'),
+  
+  // Get QR code URL
+  getQRCode: () => 
+    `${API_BASE_URL}/membership/qr-code`,
+};
+
+
 // ============ BORROWINGS API ============
 export const borrowingsAPI = {
   getMyBorrowings: () => 
@@ -172,6 +204,19 @@ export const borrowingsAPI = {
       method: 'POST',
       body: JSON.stringify({ payment_method: paymentMethod })
     }),
+  
+  borrowBook: (bookId) => 
+    apiRequest(`/borrowings/borrow/${bookId}`, {
+      method: 'POST'
+    }),
+  
+  reserveBook: (bookId) => 
+    apiRequest(`/borrowings/reserve/${bookId}`, {
+      method: 'POST'
+    }),
+  
+  getReservations: (bookId) =>
+    apiRequest(`/borrowings/reservations/${bookId}`),
 };
 
 // ============ TRENDING API ============
@@ -213,17 +258,6 @@ export const recommendationsAPI = {
     apiRequest('/recommendations/has-recommendations'),
 };
 
-// ============ MEMBERSHIP API ============
-export const membershipAPI = {
-  apply: (durationMonths = 12) => 
-    apiRequest('/membership/apply', {
-      method: 'POST',
-      body: JSON.stringify({ duration_months: durationMonths })
-    }),
-  
-  getStatus: () => 
-    apiRequest('/membership/status'),
-};
 
 // ============ ADMIN API ============
 export const adminAPI = {

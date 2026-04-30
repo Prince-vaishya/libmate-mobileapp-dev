@@ -57,7 +57,7 @@ function NewArrivalRow({ book, onPress }) {
 }
 
 export default function RecommendedScreen({ onClose }) {
-  const [selectedBook, setSelectedBook] = useState(null);
+  const [selectedBook, setSelectedBook]       = useState(null);
   const [recommendations, setRecommendations] = useState([]);
   const [trending, setTrending]               = useState([]);
   const [newArrivals, setNewArrivals]         = useState([]);
@@ -78,9 +78,9 @@ export default function RecommendedScreen({ onClose }) {
         return arr.length > 0 ? arr : fallback;
       };
 
-      setRecommendations(pick(recRes,  MOCK_BOOKS.slice(0, 6)));
+      setRecommendations(pick(recRes,   MOCK_BOOKS.slice(0, 6)));
       setTrending(       pick(trendRes, MOCK_BOOKS.slice(3, 9)));
-      setNewArrivals(    pick(arrRes,  MOCK_BOOKS.slice(6, 12)));
+      setNewArrivals(    pick(arrRes,   MOCK_BOOKS.slice(6, 12)));
       setLoading(false);
     }
     fetchAll();
@@ -88,10 +88,9 @@ export default function RecommendedScreen({ onClose }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      {/* ── Top bar ── */}
       <View style={styles.topBar}>
         <TouchableOpacity onPress={onClose} style={styles.backBtn}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color="#111827" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color="#2C1F14" />
         </TouchableOpacity>
         <Text style={styles.topBarTitle}>Recommended for You</Text>
         <View style={{ width: 38 }} />
@@ -100,21 +99,20 @@ export default function RecommendedScreen({ onClose }) {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color="#C4895A" />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
           {/* ── AI banner ── */}
           <View style={styles.aiBanner}>
-            <MaterialCommunityIcons name="robot-outline" size={28} color="#4F46E5" />
+            <MaterialCommunityIcons name="robot-outline" size={28} color="#C4895A" />
             <View style={{ flex: 1 }}>
               <Text style={styles.aiTitle}>AI-Powered Picks</Text>
               <Text style={styles.aiSub}>Based on your borrow history and ratings</Text>
             </View>
           </View>
 
-          {/* ── Recommended ── */}
           {recommendations.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Recommended for You</Text>
@@ -129,7 +127,6 @@ export default function RecommendedScreen({ onClose }) {
             </>
           )}
 
-          {/* ── Trending ── */}
           {trending.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Trending This Month</Text>
@@ -144,7 +141,6 @@ export default function RecommendedScreen({ onClose }) {
             </>
           )}
 
-          {/* ── New Arrivals ── */}
           {newArrivals.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>New Arrivals</Text>
@@ -176,15 +172,15 @@ export default function RecommendedScreen({ onClose }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F5F5' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
   },
-  backBtn: { padding: 4 },
-  topBarTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  divider: { height: 1, backgroundColor: '#E5E7EB' },
+  backBtn:     { padding: 4 },
+  topBarTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '700', color: '#2C1F14' },
+  divider:     { height: 1, backgroundColor: '#EAE0D0' },
 
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
@@ -192,34 +188,34 @@ const styles = StyleSheet.create({
 
   aiBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#EEF2FF', borderRadius: 14,
+    backgroundColor: '#F3EDE3', borderRadius: 14,
     padding: 16, marginBottom: 24,
   },
-  aiTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  aiSub:   { fontSize: 13, color: '#6B7280' },
+  aiTitle: { fontSize: 15, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  aiSub:   { fontSize: 13, color: '#9A8478' },
 
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12, marginTop: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#2C1F14', marginBottom: 12, marginTop: 8 },
 
   hList: { paddingRight: 16, paddingBottom: 16 },
 
-  newArrivalsCard: { backgroundColor: '#E8E8E8', borderRadius: 14, overflow: 'hidden' },
+  newArrivalsCard: { backgroundColor: '#F3EDE3', borderRadius: 14, overflow: 'hidden' },
 });
 
 const cardStyles = StyleSheet.create({
-  card: { width: 140, marginRight: 12, backgroundColor: '#E8E8E8', borderRadius: 12, overflow: 'hidden' },
-  cover: { width: '100%', height: 160, backgroundColor: '#C4C4C4' },
-  info:  { padding: 10 },
-  title: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  author:{ fontSize: 11, color: '#6B7280' },
+  card:   { width: 140, marginRight: 12, backgroundColor: '#F3EDE3', borderRadius: 12, overflow: 'hidden' },
+  cover:  { width: '100%', height: 160, backgroundColor: '#D4C5B0' },
+  info:   { padding: 10 },
+  title:  { fontSize: 13, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  author: { fontSize: 11, color: '#9A8478' },
 });
 
 const rowStyles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  thumb: { width: 52, height: 70, borderRadius: 8, backgroundColor: '#C4C4C4', flexShrink: 0 },
-  title: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  author:{ fontSize: 12, color: '#6B7280', marginBottom: 2 },
-  genre: { fontSize: 11, color: '#9CA3AF' },
-  newBadge: { backgroundColor: '#4F46E5', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
-  newText:  { fontSize: 11, fontWeight: '700', color: '#fff' },
-  divider:  { height: 1, backgroundColor: '#D5D5D5', marginHorizontal: 14 },
+  row:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  thumb:  { width: 52, height: 70, borderRadius: 8, backgroundColor: '#D4C5B0', flexShrink: 0 },
+  title:  { fontSize: 14, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  author: { fontSize: 12, color: '#9A8478', marginBottom: 2 },
+  genre:  { fontSize: 11, color: '#9A8478' },
+  newBadge: { backgroundColor: '#2C1F14', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
+  newText:  { fontSize: 11, fontWeight: '700', color: '#FAF7F2' },
+  divider:  { height: 1, backgroundColor: '#EAE0D0', marginHorizontal: 14 },
 });

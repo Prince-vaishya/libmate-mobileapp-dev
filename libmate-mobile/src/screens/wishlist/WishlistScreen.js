@@ -33,8 +33,8 @@ function WishCard({ book, onPress }) {
       <View style={styles.cardInfo}>
         <Text style={styles.cardTitle} numberOfLines={2}>{book.title}</Text>
         <Text style={styles.cardAuthor} numberOfLines={1}>{book.author}</Text>
-        <View style={[styles.availBadge, { backgroundColor: avail ? '#D1FAE5' : '#FEE2E2' }]}>
-          <Text style={[styles.availText, { color: avail ? '#065F46' : '#991B1B' }]}>
+        <View style={[styles.availBadge, { backgroundColor: avail ? '#D7EDD9' : '#FADADD' }]}>
+          <Text style={[styles.availText, { color: avail ? '#4A7C59' : '#B85450' }]}>
             {avail ? 'Available' : 'Unavailable'}
           </Text>
         </View>
@@ -47,24 +47,19 @@ export default function WishlistScreen() {
   const [selectedBook, setSelectedBook] = useState(null);
   const [wishlist, setWishlist]         = useState([]);
   const [refreshing, setRefreshing]     = useState(false);
-  const { setWishlist: storeSet } = useWishlistStore();
+  const { setWishlist: storeSet }       = useWishlistStore();
 
   async function fetchWishlist() {
     try {
       const { data } = await getMyWishlist();
       if (Array.isArray(data)) {
         setWishlist(data);
-        storeSet(data);   // keep global store in sync
+        storeSet(data);
       }
     } catch { /* keep current state */ }
   }
 
-  // Refetch whenever this tab gains focus
-  useFocusEffect(
-    useCallback(() => {
-      fetchWishlist();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { fetchWishlist(); }, []));
 
   async function onRefresh() {
     setRefreshing(true);
@@ -80,10 +75,10 @@ export default function WishlistScreen() {
         </View>
         <ScrollView
           contentContainerStyle={styles.emptyScroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C4895A" />}
         >
           <View style={styles.empty}>
-            <MaterialCommunityIcons name="heart-outline" size={48} color="#D1D5DB" />
+            <MaterialCommunityIcons name="heart-outline" size={48} color="#D4C5B0" />
             <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
             <Text style={styles.emptySub}>Browse books and tap the heart to save them here.</Text>
           </View>
@@ -107,7 +102,7 @@ export default function WishlistScreen() {
       <ScrollView
         contentContainerStyle={styles.grid}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C4895A" />}
       >
         {rows.map((row, rIdx) => (
           <View key={rIdx} style={styles.row}>
@@ -130,7 +125,7 @@ export default function WishlistScreen() {
             book={selectedBook}
             onClose={() => {
               setSelectedBook(null);
-              fetchWishlist();   // refresh after closing detail (e.g. removed from wishlist)
+              fetchWishlist();
             }}
           />
         )}
@@ -140,28 +135,28 @@ export default function WishlistScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F5F5' },
+  safe: { flex: 1, backgroundColor: '#FAF7F2' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
     paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
-  headerSub:   { fontSize: 13, color: '#6B7280' },
-  countText:   { textAlign: 'center', fontSize: 12, color: '#9CA3AF', marginTop: 8 },
+  headerTitle: { flex: 1, fontSize: 22, fontWeight: '800', color: '#2C1F14' },
+  headerSub:   { fontSize: 13, color: '#9A8478', flexShrink: 0 },
+  countText:   { textAlign: 'center', fontSize: 12, color: '#9A8478', marginTop: 8 },
 
-  grid:      { paddingHorizontal: 16, paddingBottom: 24 },
+  grid:        { paddingHorizontal: 16, paddingBottom: 24 },
   emptyScroll: { flex: 1 },
-  row:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  row:         { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
 
-  card:      { width: CARD_W, backgroundColor: '#E8E8E8', borderRadius: 14, overflow: 'hidden' },
-  cardCover: { width: '100%', height: 155, backgroundColor: '#C4C4C4' },
+  card:      { width: CARD_W, backgroundColor: '#F3EDE3', borderRadius: 14, overflow: 'hidden' },
+  cardCover: { width: '100%', height: 155, backgroundColor: '#D4C5B0' },
   cardInfo:  { padding: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  cardAuthor:{ fontSize: 12, color: '#6B7280', marginBottom: 8 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  cardAuthor:{ fontSize: 12, color: '#9A8478', marginBottom: 8 },
   availBadge:{ alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
   availText: { fontSize: 11, fontWeight: '600' },
 
   empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#374151', marginTop: 16 },
-  emptySub:   { fontSize: 14, color: '#9CA3AF', marginTop: 6, textAlign: 'center' },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#4A3728', marginTop: 16 },
+  emptySub:   { fontSize: 14, color: '#9A8478', marginTop: 6, textAlign: 'center' },
 });

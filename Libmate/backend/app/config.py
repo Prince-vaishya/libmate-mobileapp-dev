@@ -38,6 +38,11 @@ class Config:
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     PORT = int(os.getenv('PORT', 5000))
     
+    # File Uploads
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'photos')
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
+    ALLOWED_PHOTO_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
+
     # Business Rules
     FINE_RATE_PER_DAY = float(os.getenv('FINE_RATE_PER_DAY', 5.00))
     MAX_BORROW_LIMIT = int(os.getenv('MAX_BORROW_LIMIT', 5))

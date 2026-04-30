@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// ── Reusable password field with eye toggle ────────────────────
 function PasswordField({ label, value, onChangeText, error, returnKeyType, onSubmitEditing }) {
   const [secure, setSecure] = useState(true);
   return (
@@ -22,7 +21,7 @@ function PasswordField({ label, value, onChangeText, error, returnKeyType, onSub
       <View style={styles.inputWrap}>
         <TextInput
           style={[styles.input, error && styles.inputError]}
-          placeholderTextColor="#BDBDBD"
+          placeholderTextColor="#9A8478"
           placeholder="••••••••"
           secureTextEntry={secure}
           value={value}
@@ -35,7 +34,7 @@ function PasswordField({ label, value, onChangeText, error, returnKeyType, onSub
           <MaterialCommunityIcons
             name={secure ? 'eye-outline' : 'eye-off-outline'}
             size={20}
-            color="#9CA3AF"
+            color="#9A8478"
           />
         </TouchableOpacity>
       </View>
@@ -45,7 +44,7 @@ function PasswordField({ label, value, onChangeText, error, returnKeyType, onSub
 }
 
 export default function ChangePasswordScreen({ onSuccess }) {
-  const [form, setForm] = useState({ old_password: '', new_password: '', confirm: '' });
+  const [form, setForm]     = useState({ old_password: '', new_password: '', confirm: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -56,10 +55,10 @@ export default function ChangePasswordScreen({ onSuccess }) {
 
   function validate() {
     const e = {};
-    if (!form.old_password)                                e.old_password = 'Current password is required';
-    if (!form.new_password)                                e.new_password = 'New password is required';
-    else if (form.new_password.length < 6)                 e.new_password = 'At least 6 characters';
-    if (form.new_password !== form.confirm)                e.confirm      = 'Passwords do not match';
+    if (!form.old_password)                  e.old_password = 'Current password is required';
+    if (!form.new_password)                  e.new_password = 'New password is required';
+    else if (form.new_password.length < 6)   e.new_password = 'At least 6 characters';
+    if (form.new_password !== form.confirm)  e.confirm      = 'Passwords do not match';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -119,7 +118,7 @@ export default function ChangePasswordScreen({ onSuccess }) {
           activeOpacity={0.85}
         >
           {loading
-            ? <ActivityIndicator color="#fff" />
+            ? <ActivityIndicator color="#FAF7F2" />
             : <Text style={styles.btnText}>Update Password</Text>
           }
         </TouchableOpacity>
@@ -131,29 +130,29 @@ export default function ChangePasswordScreen({ onSuccess }) {
 const styles = StyleSheet.create({
   scroll: { padding: 20 },
 
-  field: { marginBottom: 16 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#6B7280', letterSpacing: 0.8, marginBottom: 6 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center' },
+  field:      { marginBottom: 16 },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#9A8478', letterSpacing: 0.8, marginBottom: 6 },
+  inputWrap:  { flexDirection: 'row', alignItems: 'center' },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F3EDE3',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
-    color: '#111827',
+    color: '#2C1F14',
   },
-  inputError: { borderWidth: 1.5, borderColor: '#EF4444' },
-  eyeBtn: { position: 'absolute', right: 12 },
-  errorText: { fontSize: 12, color: '#EF4444', marginTop: 4 },
+  inputError: { borderWidth: 1.5, borderColor: '#B85450' },
+  eyeBtn:     { position: 'absolute', right: 12 },
+  errorText:  { fontSize: 12, color: '#B85450', marginTop: 4 },
 
   btn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#2C1F14',
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 8,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
+  btnText:     { color: '#FAF7F2', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
 });

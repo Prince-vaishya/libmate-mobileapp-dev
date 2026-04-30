@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()  # Must run before Config is imported so os.getenv() reads .env values
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 import os
@@ -46,7 +46,15 @@ def create_app(config_class=Config):
     app.register_blueprint(recommendations_bp, url_prefix='/api/recommendations')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(membership_bp, url_prefix='/api/membership')
-    
+
+    # Ensure upload folder exists
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    # Serve uploaded photos
+    @app.route('/uploads/photos/<path:filename>')
+    def serve_photo(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
     # Error handlers
     @app.errorhandler(404)
     def not_found(error):

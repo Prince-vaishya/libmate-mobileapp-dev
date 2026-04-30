@@ -31,7 +31,7 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#4F46E5" />
+      <ActivityIndicator size="large" color="#2C1F14" />
     </View>
   );
 }

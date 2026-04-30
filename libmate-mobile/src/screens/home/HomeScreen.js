@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,17 @@ import {
   StyleSheet,
   RefreshControl,
   Modal,
+  TextInput,
+  Image,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import useAuthStore from '@/store/authStore';
+import { getBooks } from '@/api/books';
 import { getTrending, getNewArrivals } from '@/api/trending';
 import { getRecommendations, hasRecommendations } from '@/api/recommendations';
 import BookCard from '@/components/BookCard';
@@ -21,6 +27,116 @@ import BookDetailScreen from '@/screens/catalogue/BookDetailScreen';
 import NotificationsScreen from '@/screens/notifications/NotificationsScreen';
 import RecommendedScreen from '@/screens/recommendations/RecommendedScreen';
 import { MOCK_BOOKS, MOCK_NOTIFICATIONS } from '@/data/mockData';
+
+const SEARCH_PLACEHOLDER = require('../../../assets/icon.png');
+
+function SearchModal({ visible, onClose, onSelectBook }) {
+  const [query, setQuery]     = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const debounceRef           = useRef(null);
+  const inputRef              = useRef(null);
+
+  useEffect(() => {
+    if (!visible) { setQuery(''); setResults([]); return; }
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [visible]);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    if (!query.trim()) { setResults([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const { data } = await getBooks({ search: query.trim(), per_page: 20 });
+        setResults(data?.books || (Array.isArray(data) ? data : []));
+      } catch {
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 350);
+    return () => clearTimeout(debounceRef.current);
+  }, [query]);
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#FAF7F2' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <SafeAreaView style={search.safe}>
+          {/* ── Top bar ── */}
+          <View style={search.topBar}>
+            <View style={search.inputRow}>
+              <MaterialCommunityIcons name="magnify" size={18} color="#9A8478" />
+              <TextInput
+                ref={inputRef}
+                style={search.input}
+                placeholder="Title, author, ISBN or genre…"
+                placeholderTextColor="#9A8478"
+                value={query}
+                onChangeText={setQuery}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+                autoCorrect={false}
+              />
+              {loading && <ActivityIndicator size="small" color="#C4895A" />}
+            </View>
+            <TouchableOpacity onPress={onClose} style={search.cancelBtn}>
+              <Text style={search.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={search.divider} />
+
+          {/* ── Results ── */}
+          <FlatList
+            data={results}
+            keyExtractor={(b) => String(b.book_id)}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={search.list}
+            renderItem={({ item }) => {
+              const avail = item.available_copies > 0;
+              return (
+                <TouchableOpacity
+                  style={search.resultRow}
+                  onPress={() => { onClose(); onSelectBook(item); }}
+                  activeOpacity={0.75}
+                >
+                  <Image
+                    source={item.cover_image ? { uri: item.cover_image } : SEARCH_PLACEHOLDER}
+                    style={search.cover}
+                    resizeMode="cover"
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={search.title} numberOfLines={2}>{item.title}</Text>
+                    <Text style={search.author} numberOfLines={1}>{item.author}</Text>
+                    {item.genre ? <Text style={search.genre}>{item.genre}</Text> : null}
+                    <View style={[search.badge, { backgroundColor: avail ? '#D7EDD9' : '#FADADD' }]}>
+                      <Text style={[search.badgeText, { color: avail ? '#4A7C59' : '#B85450' }]}>
+                        {avail ? 'Available' : 'Unavailable'}
+                      </Text>
+                    </View>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#D4C5B0" />
+                </TouchableOpacity>
+              );
+            }}
+            ItemSeparatorComponent={() => <View style={search.separator} />}
+            ListEmptyComponent={
+              query.trim() && !loading ? (
+                <View style={search.empty}>
+                  <MaterialCommunityIcons name="book-search" size={44} color="#D4C5B0" />
+                  <Text style={search.emptyText}>No books found</Text>
+                </View>
+              ) : null
+            }
+          />
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
 
 function SectionHeader({ title, onSeeAll }) {
   return (
@@ -67,15 +183,15 @@ function MembershipPill({ hasActiveMembership, membership }) {
   if (hasActiveMembership && membership?.card_number) {
     return (
       <View style={[styles.pill, styles.pillActive]}>
-        <MaterialCommunityIcons name="card-account-details" size={13} color="#fff" />
+        <MaterialCommunityIcons name="card-account-details" size={13} color="#FAF7F2" />
         <Text style={styles.pillText}>Member · {membership.card_number}</Text>
       </View>
     );
   }
   return (
     <View style={[styles.pill, styles.pillGuest]}>
-      <MaterialCommunityIcons name="account-outline" size={13} color="#6B7280" />
-      <Text style={[styles.pillText, { color: '#6B7280' }]}>Guest account</Text>
+      <MaterialCommunityIcons name="account-outline" size={13} color="#9A8478" />
+      <Text style={[styles.pillText, { color: '#9A8478' }]}>Guest account</Text>
     </View>
   );
 }
@@ -83,6 +199,7 @@ function MembershipPill({ hasActiveMembership, membership }) {
 export default function HomeScreen() {
   const { user, membership, hasActiveMembership } = useAuthStore();
   const [selectedBook, setSelectedBook] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showRecommended, setShowRecommended] = useState(false);
   const unreadCount = MOCK_NOTIFICATIONS.filter((n) => !n.is_read).length;
@@ -135,33 +252,30 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C4895A" />}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Welcome banner ── */}
         <View style={styles.banner}>
-          <View>
-            <Text style={styles.welcome}>Good morning,</Text>
+          <View style={styles.bannerLeft}>
             <Text style={styles.name}>{firstName}</Text>
-          </View>
-          <View style={styles.bannerRight}>
-            <TouchableOpacity style={styles.bellBtn} onPress={() => setShowNotifications(true)}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#111827" />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
             <MembershipPill hasActiveMembership={hasActiveMembership} membership={membership} />
           </View>
+          <TouchableOpacity style={styles.bellBtn} onPress={() => setShowNotifications(true)}>
+            <MaterialCommunityIcons name="bell-outline" size={24} color="#2C1F14" />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* ── Search bar (decorative — tapping switches to Catalogue tab) ── */}
-        <View style={styles.searchBar}>
-          <MaterialCommunityIcons name="magnify" size={18} color="#9CA3AF" />
+        {/* ── Search bar ── */}
+        <TouchableOpacity style={styles.searchBar} onPress={() => setShowSearch(true)} activeOpacity={0.75}>
+          <MaterialCommunityIcons name="magnify" size={18} color="#9A8478" />
           <Text style={styles.searchPlaceholder}>Search books, authors, ISBN…</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* ── Trending ── */}
         <SectionHeader title="Trending Now" onSeeAll={() => {}} />
@@ -180,35 +294,21 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* ── Book Detail Modal ── */}
-      <Modal
-        visible={selectedBook !== null}
-        animationType="slide"
-        onRequestClose={() => setSelectedBook(null)}
-      >
-        {selectedBook && (
-          <BookDetailScreen
-            book={selectedBook}
-            onClose={() => setSelectedBook(null)}
-          />
-        )}
+      <SearchModal
+        visible={showSearch}
+        onClose={() => setShowSearch(false)}
+        onSelectBook={(book) => { setShowSearch(false); setSelectedBook(book); }}
+      />
+
+      <Modal visible={selectedBook !== null} animationType="slide" onRequestClose={() => setSelectedBook(null)}>
+        {selectedBook && <BookDetailScreen book={selectedBook} onClose={() => setSelectedBook(null)} />}
       </Modal>
 
-      {/* ── Notifications Modal ── */}
-      <Modal
-        visible={showNotifications}
-        animationType="slide"
-        onRequestClose={() => setShowNotifications(false)}
-      >
+      <Modal visible={showNotifications} animationType="slide" onRequestClose={() => setShowNotifications(false)}>
         <NotificationsScreen onClose={() => setShowNotifications(false)} />
       </Modal>
 
-      {/* ── Recommended Screen Modal ── */}
-      <Modal
-        visible={showRecommended}
-        animationType="slide"
-        onRequestClose={() => setShowRecommended(false)}
-      >
+      <Modal visible={showRecommended} animationType="slide" onRequestClose={() => setShowRecommended(false)}>
         <RecommendedScreen onClose={() => setShowRecommended(false)} />
       </Modal>
     </SafeAreaView>
@@ -216,9 +316,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F9FAFB' },
-  scroll: { flex: 1 },
-  content: { paddingBottom: 32 },
+  safeArea: { flex: 1, backgroundColor: '#FAF7F2' },
+  scroll:   { flex: 1 },
+  content:  { paddingBottom: 32 },
 
   banner: {
     flexDirection: 'row',
@@ -228,11 +328,10 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 16,
   },
-  welcome: { fontSize: 14, color: '#6B7280' },
-  name: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  name:    { fontSize: 22, fontWeight: '800', color: '#2C1F14' },
 
-  bannerRight: { alignItems: 'flex-end', gap: 8 },
-  bellBtn: { position: 'relative', padding: 4 },
+  bannerLeft: { flex: 1, gap: 8 },
+  bellBtn:    { position: 'relative', padding: 4, alignSelf: 'flex-start' },
   badge: {
     position: 'absolute', top: 0, right: 0,
     backgroundColor: '#EF4444', borderRadius: 8,
@@ -245,22 +344,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
   },
-  pillActive: { backgroundColor: '#4F46E5' },
-  pillGuest: { backgroundColor: '#F3F4F6' },
-  pillText: { fontSize: 11, fontWeight: '600', color: '#fff' },
+  pillActive: { backgroundColor: '#2C1F14' },
+  pillGuest:  { backgroundColor: '#EAE0D0' },
+  pillText:   { fontSize: 11, fontWeight: '600', color: '#FAF7F2' },
 
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#EBEBEB',
+    backgroundColor: '#EAE0D0',
     marginHorizontal: 20,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 8,
   },
-  searchPlaceholder: { fontSize: 14, color: '#9CA3AF' },
+  searchPlaceholder: { fontSize: 14, color: '#9A8478' },
 
   sectionHeader: {
     flexDirection: 'row',
@@ -270,8 +369,38 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 12,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
-  seeAll: { fontSize: 13, color: '#4F46E5', fontWeight: '600' },
+  sectionTitle: { flex: 1, fontSize: 17, fontWeight: '700', color: '#2C1F14' },
+  seeAll:       { fontSize: 13, color: '#C4895A', fontWeight: '600', flexShrink: 0 },
 
   hList: { paddingHorizontal: 20 },
+});
+
+const search = StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: '#FAF7F2' },
+  topBar:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 10 },
+  inputRow: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#EAE0D0', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  input:      { flex: 1, fontSize: 15, color: '#2C1F14' },
+  cancelBtn:  { paddingVertical: 4 },
+  cancelText: { fontSize: 15, color: '#C4895A', fontWeight: '600' },
+  divider:    { height: 1, backgroundColor: '#EAE0D0' },
+
+  list: { padding: 16, gap: 4 },
+  resultRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F3EDE3', borderRadius: 12, padding: 12,
+  },
+  cover:     { width: 52, height: 70, borderRadius: 8, backgroundColor: '#D4C5B0', flexShrink: 0 },
+  title:     { fontSize: 14, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  author:    { fontSize: 12, color: '#9A8478', marginBottom: 2 },
+  genre:     { fontSize: 11, color: '#C4895A', marginBottom: 6 },
+  badge:     { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
+  badgeText: { fontSize: 11, fontWeight: '600' },
+  separator: { height: 8 },
+
+  empty:     { alignItems: 'center', paddingTop: 60, gap: 12 },
+  emptyText: { fontSize: 16, color: '#9A8478', fontWeight: '600' },
 });

@@ -48,7 +48,6 @@ function SplashView() {
 
   useEffect(() => {
     Animated.sequence([
-      // 1. Logo pops in with a spring
       Animated.parallel([
         Animated.spring(scale, {
           toValue: 1,
@@ -63,7 +62,6 @@ function SplashView() {
           useNativeDriver: true,
         }),
       ]),
-      // 2. Dots fade in
       Animated.timing(dotOp, {
         toValue: 1,
         duration: 250,
@@ -109,11 +107,11 @@ function BounceDot({ delay }) {
 const splashStyles = StyleSheet.create({
   container: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: '#FFFFFF', gap: 40,
+    backgroundColor: '#FAF7F2', gap: 40,
   },
   logo:    { width: 260, height: 260 },
   dotsRow: { flexDirection: 'row', gap: 8 },
-  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4F46E5' },
+  dot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: '#C4895A' },
 });
 
 // ── Main tab navigator (shown when logged in) ─────────────────────
@@ -122,11 +120,11 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#2C1F14',
+        tabBarInactiveTintColor: '#9A8478',
         tabBarStyle: {
-          backgroundColor: '#fff',
-          borderTopColor: '#E5E7EB',
+          backgroundColor: '#FAF7F2',
+          borderTopColor: '#EAE0D0',
           borderTopWidth: 1,
           paddingBottom: Platform.OS === 'ios' ? 20 : 6,
           paddingTop: 6,
@@ -155,13 +153,9 @@ function MainTabs() {
 export default function AppNavigator() {
   const { token, isLoading } = useAuthStore();
 
-  // Still checking SecureStore / running bootstrap
   if (isLoading) return <SplashView />;
-
-  // Not logged in: render LoginScreen directly — no native stack, no crash
   if (!token) return <LoginScreen />;
 
-  // Logged in: wrap Tab.Navigator in NavigationContainer
   return (
     <NavigationContainer>
       <MainTabs />

@@ -1,8 +1,10 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import text
 from ..extensions import db
 import bcrypt
+import os
+import uuid
 
 users_bp = Blueprint('users', __name__)
 
@@ -11,16 +13,25 @@ users_bp = Blueprint('users', __name__)
 @jwt_required()
 def get_my_profile():
     user_id = int(get_jwt_identity())
-    
+
     result = db.session.execute(
         text("SELECT * FROM vw_member_summary WHERE user_id = :user_id"),
         {'user_id': user_id}
     ).first()
-    
+
     if not result:
         return jsonify({'error': 'User not found'}), 404
-    
-    return jsonify(dict(result._mapping)), 200
+
+    data = dict(result._mapping)
+
+    # Fetch profile_picture separately as the view may not include it
+    pic_row = db.session.execute(
+        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
+        {'uid': user_id}
+    ).first()
+    data['profile_picture'] = pic_row.profile_picture if pic_row else None
+
+    return jsonify(data), 200
 
 
 @users_bp.route('/me', methods=['PUT'])
@@ -50,6 +61,68 @@ def update_my_profile():
         db.session.commit()
     
     return jsonify({'message': 'Profile updated successfully'}), 200
+
+
+@users_bp.route('/upload-photo', methods=['POST'])
+@jwt_required()
+def upload_photo():
+    user_id = int(get_jwt_identity())
+
+    if 'profile_photo' not in request.files:
+        return jsonify({'error': 'No photo file provided'}), 400
+
+    file = request.files['profile_photo']
+    if not file.filename:
+        return jsonify({'error': 'No file selected'}), 400
+
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in current_app.config['ALLOWED_PHOTO_EXTENSIONS']:
+        return jsonify({'error': 'File type not allowed. Use JPG, PNG or WEBP'}), 400
+
+    # Delete old photo if one exists
+    existing = db.session.execute(
+        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
+        {'uid': user_id}
+    ).first()
+    if existing and existing.profile_picture:
+        old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], existing.profile_picture)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+
+    db.session.execute(
+        text("UPDATE users SET profile_picture = :pic, updated_at = NOW() WHERE user_id = :uid"),
+        {'pic': filename, 'uid': user_id}
+    )
+    db.session.commit()
+
+    photo_url = f"{request.host_url}uploads/photos/{filename}"
+    return jsonify({'message': 'Photo uploaded successfully', 'photo_url': photo_url}), 200
+
+
+@users_bp.route('/remove-photo', methods=['DELETE'])
+@jwt_required()
+def remove_photo():
+    user_id = int(get_jwt_identity())
+
+    existing = db.session.execute(
+        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
+        {'uid': user_id}
+    ).first()
+
+    if existing and existing.profile_picture:
+        old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], existing.profile_picture)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    db.session.execute(
+        text("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE user_id = :uid"),
+        {'uid': user_id}
+    )
+    db.session.commit()
+    return jsonify({'message': 'Photo removed successfully'}), 200
 
 
 @users_bp.route('/me/borrowings', methods=['GET'])
@@ -260,6 +333,29 @@ def create_reservation():
     )
     db.session.commit()
     return jsonify({'message': 'Book reserved successfully. Collect within 48 hours.'}), 201
+
+
+@users_bp.route('/me/reservations/<int:reservation_id>', methods=['DELETE'])
+@jwt_required()
+def cancel_reservation(reservation_id):
+    user_id = int(get_jwt_identity())
+    row = db.session.execute(
+        text("""
+            SELECT reservation_id FROM reservations
+            WHERE reservation_id = :rid AND user_id = :uid AND status = 'pending'
+        """),
+        {'rid': reservation_id, 'uid': user_id}
+    ).first()
+
+    if not row:
+        return jsonify({'error': 'Reservation not found or already cancelled'}), 404
+
+    db.session.execute(
+        text("UPDATE reservations SET status = 'cancelled' WHERE reservation_id = :rid"),
+        {'rid': reservation_id}
+    )
+    db.session.commit()
+    return jsonify({'message': 'Reservation cancelled successfully'}), 200
 
 
 @users_bp.route('/me/recommendations', methods=['GET'])

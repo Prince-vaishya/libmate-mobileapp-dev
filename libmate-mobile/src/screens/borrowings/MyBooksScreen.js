@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { MOCK_ACTIVE_BORROWINGS, MOCK_BORROWING_HISTORY, MOCK_WISHLIST } from '@/data/mockData';
-import { getMyBorrowings, getMyHistory, getMyWishlist, getMyReservations } from '@/api/users';
+import { getMyBorrowings, getMyHistory, getMyWishlist, getMyReservations, cancelReservation } from '@/api/users';
 import { requestRenewal } from '@/api/borrowings';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
@@ -45,7 +45,7 @@ function RenewModal({ item, onClose }) {
   async function handleConfirm() {
     try {
       await requestRenewal(item.borrow_id);
-    } catch { /* ignore — works in mock mode too */ }
+    } catch { /* ignore */ }
     onClose();
     Alert.alert(
       isOverdue ? 'Fine & Renewal' : 'Renewal Confirmed',
@@ -60,14 +60,10 @@ function RenewModal({ item, onClose }) {
       <View style={renewStyles.overlay}>
         <TouchableOpacity style={renewStyles.backdrop} onPress={onClose} activeOpacity={1} />
         <View style={renewStyles.sheet}>
-          {/* Drag handle */}
           <View style={renewStyles.handle} />
-
-          {/* Title */}
           <Text style={renewStyles.title}>{isOverdue ? 'Pay Fine & Renew' : 'Renew Book'}</Text>
           <Text style={renewStyles.subtitle}>{item.title} – {item.author}</Text>
 
-          {/* Info rows */}
           <View style={renewStyles.infoBlock}>
             <View style={renewStyles.infoRow}>
               <Text style={renewStyles.infoLabel}>Current Due Date</Text>
@@ -82,8 +78,8 @@ function RenewModal({ item, onClose }) {
               <>
                 <View style={renewStyles.rowDivider} />
                 <View style={renewStyles.infoRow}>
-                  <Text style={[renewStyles.infoLabel, { color: '#EF4444' }]}>Outstanding Fine</Text>
-                  <Text style={[renewStyles.infoValue, { color: '#EF4444' }]}>
+                  <Text style={[renewStyles.infoLabel, { color: '#B85450' }]}>Outstanding Fine</Text>
+                  <Text style={[renewStyles.infoValue, { color: '#B85450' }]}>
                     £{item.fine_amount?.toFixed(2)}
                   </Text>
                 </View>
@@ -96,7 +92,6 @@ function RenewModal({ item, onClose }) {
             </View>
           </View>
 
-          {/* Buttons */}
           <TouchableOpacity style={renewStyles.confirmBtn} onPress={handleConfirm} activeOpacity={0.85}>
             <Text style={renewStyles.confirmText}>
               {isOverdue ? 'Pay Fine & Confirm Renewal' : 'Confirm Renewal'}
@@ -111,10 +106,8 @@ function RenewModal({ item, onClose }) {
   );
 }
 
-// ── Borrow card ────────────────────────────────────────────────
 function BorrowCard({ item, onRenew }) {
   const isOverdue = item.status === 'overdue';
-
   return (
     <View style={styles.borrowCard}>
       <View style={styles.borrowCardInner}>
@@ -137,7 +130,7 @@ function BorrowCard({ item, onRenew }) {
         onPress={onRenew}
         activeOpacity={0.8}
       >
-        <Text style={[styles.renewBtnText, isOverdue && styles.fineBtnText]}>
+        <Text style={styles.renewBtnText}>
           {isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
         </Text>
       </TouchableOpacity>
@@ -145,7 +138,6 @@ function BorrowCard({ item, onRenew }) {
   );
 }
 
-// ── History card ───────────────────────────────────────────────
 function HistoryCard({ item }) {
   return (
     <View style={styles.borrowCard}>
@@ -171,8 +163,7 @@ function HistoryCard({ item }) {
   );
 }
 
-// ── Reservation card ───────────────────────────────────────────
-function ReservationCard({ item }) {
+function ReservationCard({ item, onCancel, cancelling }) {
   const expiresAt = new Date(item.expires_at);
   const now = new Date();
   const hoursLeft = Math.max(0, Math.round((expiresAt - now) / 3600000));
@@ -188,18 +179,25 @@ function ReservationCard({ item }) {
           <Text style={styles.borrowTitle}>{item.title}</Text>
           <Text style={styles.borrowAuthor}>{item.author}</Text>
           <Text style={styles.borrowDates}>Reserved: {formatDate(item.reserved_at)}</Text>
-          <View style={[styles.copyBadge, { backgroundColor: hoursLeft > 0 ? '#FEF3C7' : '#FEE2E2', marginTop: 4 }]}>
-            <Text style={[styles.copyBadgeText, { color: hoursLeft > 0 ? '#92400E' : '#991B1B' }]}>
+          <View style={[styles.copyBadge, { backgroundColor: hoursLeft > 0 ? '#FEF3C7' : '#FADADD', marginTop: 4 }]}>
+            <Text style={[styles.copyBadgeText, { color: hoursLeft > 0 ? '#92400E' : '#B85450' }]}>
               {hoursLeft > 0 ? `Collect within ${hoursLeft}h` : 'Reservation expired'}
             </Text>
           </View>
         </View>
       </View>
+      <TouchableOpacity
+        style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
+        onPress={onCancel}
+        disabled={cancelling}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.cancelBtnText}>{cancelling ? 'Cancelling…' : 'Cancel Reservation'}</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-// ── Wishlist card ──────────────────────────────────────────────
 function WishlistCard({ book }) {
   const avail = book.available_copies > 0;
   return (
@@ -214,8 +212,8 @@ function WishlistCard({ book }) {
           <Text style={styles.borrowTitle}>{book.title}</Text>
           <Text style={styles.borrowAuthor}>{book.author}</Text>
           <Text style={styles.borrowDates}>{book.genre}</Text>
-          <View style={[styles.copyBadge, { backgroundColor: avail ? '#D1FAE5' : '#FEE2E2', marginTop: 4 }]}>
-            <Text style={[styles.copyBadgeText, { color: avail ? '#065F46' : '#991B1B' }]}>
+          <View style={[styles.copyBadge, { backgroundColor: avail ? '#D7EDD9' : '#FADADD', marginTop: 4 }]}>
+            <Text style={[styles.copyBadgeText, { color: avail ? '#4A7C59' : '#B85450' }]}>
               {avail ? `${book.available_copies} copies available` : 'Currently unavailable'}
             </Text>
           </View>
@@ -234,12 +232,13 @@ function EmptyState({ message }) {
 }
 
 export default function MyBooksScreen() {
-  const [activeTab, setActiveTab] = useState('Borrowing');
-  const [renewItem, setRenewItem] = useState(null);
-  const [borrowings,    setBorrowings]    = useState(MOCK_ACTIVE_BORROWINGS);
-  const [history,       setHistory]       = useState(MOCK_BORROWING_HISTORY);
-  const [wishlist,      setWishlist]      = useState(MOCK_WISHLIST);
-  const [reservations,  setReservations]  = useState([]);
+  const [activeTab, setActiveTab]         = useState('Borrowing');
+  const [renewItem, setRenewItem]         = useState(null);
+  const [borrowings, setBorrowings]       = useState(MOCK_ACTIVE_BORROWINGS);
+  const [history, setHistory]             = useState(MOCK_BORROWING_HISTORY);
+  const [wishlist, setWishlist]           = useState(MOCK_WISHLIST);
+  const [reservations, setReservations]   = useState([]);
+  const [cancellingId, setCancellingId]   = useState(null);
 
   async function fetchData() {
     const [bRes, hRes, wRes, rRes] = await Promise.allSettled([
@@ -267,11 +266,32 @@ export default function MyBooksScreen() {
     }
   }
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { fetchData(); }, []));
+
+  function handleCancelReservation(item) {
+    Alert.alert(
+      'Cancel Reservation',
+      `Cancel your reservation for "${item.title}"?`,
+      [
+        { text: 'Keep It', style: 'cancel' },
+        {
+          text: 'Cancel Reservation',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingId(item.reservation_id);
+            try {
+              await cancelReservation(item.reservation_id);
+              setReservations((prev) => prev.filter((r) => r.reservation_id !== item.reservation_id));
+            } catch (err) {
+              Alert.alert('Error', err?.response?.data?.error || 'Could not cancel reservation.');
+            } finally {
+              setCancellingId(null);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   function renderContent() {
     switch (activeTab) {
@@ -283,7 +303,14 @@ export default function MyBooksScreen() {
           : <EmptyState message="You have no active borrowings." />;
       case 'Reserved':
         return reservations.length > 0
-          ? reservations.map((item) => <ReservationCard key={item.reservation_id} item={item} />)
+          ? reservations.map((item) => (
+              <ReservationCard
+                key={item.reservation_id}
+                item={item}
+                onCancel={() => handleCancelReservation(item)}
+                cancelling={cancellingId === item.reservation_id}
+              />
+            ))
           : <EmptyState message="You have no reserved books." />;
       case 'Wishlist':
         return wishlist.length > 0
@@ -304,7 +331,6 @@ export default function MyBooksScreen() {
         <Text style={styles.headerTitle}>My Book Record</Text>
       </View>
 
-      {/* ── 4 tabs ── */}
       <View style={styles.tabBar}>
         {TABS.map((tab) => (
           <TouchableOpacity
@@ -326,95 +352,80 @@ export default function MyBooksScreen() {
         {renderContent()}
       </ScrollView>
 
-      {/* ── Renew Book bottom sheet ── */}
       <RenewModal item={renewItem} onClose={() => setRenewItem(null)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F5F5F5' },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111827' },
+  safe:        { flex: 1, backgroundColor: '#FAF7F2' },
+  header:      { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#2C1F14' },
 
-  tabBar: { flexDirection: 'row', paddingHorizontal: 8, marginTop: 8 },
-  tabBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, position: 'relative' },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
-  tabTextActive: { color: '#4F46E5' },
+  tabBar:        { flexDirection: 'row', paddingHorizontal: 8, marginTop: 8 },
+  tabBtn:        { flex: 1, alignItems: 'center', paddingVertical: 10, position: 'relative' },
+  tabText:       { fontSize: 13, fontWeight: '600', color: '#9A8478' },
+  tabTextActive: { color: '#2C1F14' },
   tabUnderline: {
     position: 'absolute', bottom: 0, left: 8, right: 8,
-    height: 2, backgroundColor: '#4F46E5', borderRadius: 1,
+    height: 2, backgroundColor: '#2C1F14', borderRadius: 1,
   },
-  tabDivider: { height: 1, backgroundColor: '#E5E7EB' },
+  tabDivider: { height: 1, backgroundColor: '#EAE0D0' },
 
   content: { padding: 16, gap: 12 },
 
-  borrowCard: { backgroundColor: '#E8E8E8', borderRadius: 14, padding: 14, gap: 12 },
+  borrowCard:      { backgroundColor: '#F3EDE3', borderRadius: 14, padding: 14, gap: 12 },
   borrowCardInner: { flexDirection: 'row', gap: 12 },
-  borrowCover: { width: 60, height: 80, borderRadius: 8, backgroundColor: '#C4C4C4', flexShrink: 0 },
-  borrowTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  borrowAuthor: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 4 },
-  borrowDates: { fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  overdueText: { color: '#EF4444', fontWeight: '600' },
-  copyBadge: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
-  copyBadgeText: { fontSize: 11, fontWeight: '600' },
+  borrowCover:     { width: 60, height: 80, borderRadius: 8, backgroundColor: '#D4C5B0', flexShrink: 0 },
+  borrowTitle:     { fontSize: 14, fontWeight: '700', color: '#2C1F14', marginBottom: 2 },
+  borrowAuthor:    { fontSize: 13, fontWeight: '600', color: '#4A3728', marginBottom: 4 },
+  borrowDates:     { fontSize: 12, color: '#9A8478', lineHeight: 18 },
+  overdueText:     { color: '#B85450', fontWeight: '600' },
+  copyBadge:       { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  copyBadgeText:   { fontSize: 11, fontWeight: '600' },
 
-  renewBtn: { backgroundColor: '#4F46E5', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  fineBtn: { backgroundColor: '#EF4444' },
-  renewBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  fineBtnText: { color: '#fff' },
+  renewBtn:     { alignSelf: 'stretch', backgroundColor: '#2C1F14', borderRadius: 10, paddingVertical: 12 },
+  fineBtn:      { backgroundColor: '#B85450' },
+  renewBtnText: { fontSize: 14, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
 
-  empty: { alignItems: 'center', paddingTop: 48 },
-  emptyText: { fontSize: 15, color: '#9CA3AF' },
+  cancelBtn:         { alignSelf: 'stretch', backgroundColor: '#FADADD', borderRadius: 10, paddingVertical: 12 },
+  cancelBtnDisabled: { opacity: 0.5 },
+  cancelBtnText:     { fontSize: 14, fontWeight: '700', color: '#B85450', textAlign: 'center' },
+
+  empty:     { alignItems: 'center', paddingTop: 48 },
+  emptyText: { fontSize: 15, color: '#9A8478' },
 });
 
 const renewStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  overlay:  { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(44,31,20,0.5)' },
+  backdrop: { ...StyleSheet.absoluteFillObject },
   sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 36,
-    paddingTop: 12,
+    backgroundColor: '#FAF7F2',
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 24, paddingBottom: 36, paddingTop: 12,
   },
   handle: {
-    width: 40, height: 4, backgroundColor: '#D1D5DB',
+    width: 40, height: 4, backgroundColor: '#EAE0D0',
     borderRadius: 2, alignSelf: 'center', marginBottom: 20,
   },
-  title: {
-    fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14, color: '#6B7280', marginBottom: 24,
-  },
-  infoBlock: {
-    backgroundColor: '#F3F4F6', borderRadius: 14, marginBottom: 24,
-  },
+  title:    { fontSize: 20, fontWeight: '800', color: '#2C1F14', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#9A8478', marginBottom: 24 },
+  infoBlock: { backgroundColor: '#F3EDE3', borderRadius: 14, marginBottom: 24 },
   infoRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  rowDivider: { height: 1, backgroundColor: '#E5E7EB', marginHorizontal: 16 },
-  infoLabel: { fontSize: 14, color: '#374151', fontWeight: '500' },
-  infoValue: { fontSize: 14, fontWeight: '700', color: '#111827' },
-
+  rowDivider: { height: 1, backgroundColor: '#EAE0D0', marginHorizontal: 16 },
+  infoLabel:  { flex: 1, fontSize: 14, color: '#4A3728', fontWeight: '500' },
+  infoValue:  { fontSize: 14, fontWeight: '700', color: '#2C1F14', flexShrink: 0, textAlign: 'right' },
   confirmBtn: {
-    backgroundColor: '#111827', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+    alignSelf: 'stretch', backgroundColor: '#2C1F14', borderRadius: 14,
+    paddingVertical: 16, marginBottom: 12,
   },
-  confirmText: { fontSize: 15, fontWeight: '700', color: '#fff' },
-
+  confirmText: { fontSize: 15, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
   cancelBtn: {
-    backgroundColor: '#F3F4F6', borderRadius: 14,
-    paddingVertical: 16, alignItems: 'center',
+    alignSelf: 'stretch', backgroundColor: '#EAE0D0', borderRadius: 14,
+    paddingVertical: 16,
   },
-  cancelText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  cancelText: { fontSize: 15, fontWeight: '600', color: '#4A3728', textAlign: 'center' },
 });

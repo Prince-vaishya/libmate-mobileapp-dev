@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/components/SearchBar.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaSearch, FaChevronDown } from 'react-icons/fa';
 
 const SearchBar = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('all');
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+  const [searchType, setSearchType] = useState(searchParams.get('type') || 'all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const navigate = useNavigate();
+
+  // Update input when URL changes (e.g., back button)
+  useEffect(() => {
+    const q = searchParams.get('q');
+    const type = searchParams.get('type');
+    if (q) {
+      setSearchQuery(q);
+      setSearchType(type || 'all');
+    } else {
+      setSearchQuery('');
+      setSearchType('all');
+    }
+  }, [searchParams]);
 
   const searchOptions = [
     { value: 'all', label: 'All' },
@@ -20,7 +35,9 @@ const SearchBar = () => {
     e.preventDefault();
     if (searchQuery.trim()) {
       navigate(`/catalogue?q=${encodeURIComponent(searchQuery)}&type=${searchType}`);
-      setSearchQuery('');
+    } else {
+      // Navigate to catalogue without any search params
+      navigate('/catalogue');
     }
   };
 
