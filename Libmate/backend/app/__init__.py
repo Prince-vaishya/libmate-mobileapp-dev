@@ -1,11 +1,12 @@
-from dotenv import load_dotenv
-load_dotenv()  # Must run before Config is imported so os.getenv() reads .env values
-
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, decode_token
+from flask_socketio import SocketIO, join_room
+from dotenv import load_dotenv
 import os
+import bcrypt
 from datetime import timedelta
+from sqlalchemy import text
 import schedule
 import threading
 import time
@@ -13,20 +14,26 @@ import time
 from .extensions import db
 from .config import Config
 
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
+
+socketio = SocketIO(cors_allowed_origins="*")
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
-    
-    # Initialize extensions
+
     db.init_app(app)
     CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
-    
-    # JWT Configuration
+    socketio.init_app(app, cors_allowed_origins="*")
+
+    from .services.email_service import init_mail
+    init_mail(app)
+
     app.config["JWT_SECRET_KEY"] = app.config['JWT_SECRET_KEY']
     app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=1)
-    jwt = JWTManager(app)
-    
-    # Register blueprints
+    JWTManager(app)
+
     from .api.auth import auth_bp
     from .api.books import books_bp
     from .api.users import users_bp
@@ -36,51 +43,114 @@ def create_app(config_class=Config):
     from .api.recommendations import recommendations_bp
     from .api.admin import admin_bp
     from .api.membership import membership_bp
-    
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(books_bp, url_prefix='/api/books')
-    app.register_blueprint(users_bp, url_prefix='/api/users')
-    app.register_blueprint(borrowings_bp, url_prefix='/api/borrowings')
-    app.register_blueprint(trending_bp, url_prefix='/api/trending')
-    app.register_blueprint(new_arrivals_bp, url_prefix='/api/new-arrivals')
-    app.register_blueprint(recommendations_bp, url_prefix='/api/recommendations')
-    app.register_blueprint(admin_bp, url_prefix='/api/admin')
-    app.register_blueprint(membership_bp, url_prefix='/api/membership')
 
-    # Ensure upload folder exists
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    for bp, prefix in [
+        (auth_bp, '/api/auth'), (books_bp, '/api/books'), (users_bp, '/api/users'),
+        (borrowings_bp, '/api/borrowings'), (trending_bp, '/api/trending'),
+        (new_arrivals_bp, '/api/new-arrivals'), (recommendations_bp, '/api/recommendations'),
+        (admin_bp, '/api/admin'), (membership_bp, '/api/membership'),
+    ]:
+        app.register_blueprint(bp, url_prefix=prefix)
 
-    # Serve uploaded photos
+    @socketio.on('connect')
+    def handle_connect():
+        token = request.args.get('token')
+        if token:
+            try:
+                decoded = decode_token(token)
+                claims = decoded.get('additional_claims', {}) or {}
+                room = 'admin_room' if claims.get('type') == 'admin' else f"user_{decoded.get('sub', '')}"
+                join_room(room)
+            except Exception:
+                join_room('guest_room')
+        else:
+            join_room('guest_room')
+
+    @app.route('/uploads/<path:filename>')
+    def serve_upload(filename):
+        return send_from_directory(os.path.join(os.path.dirname(__file__), 'uploads'), filename)
+
     @app.route('/uploads/photos/<path:filename>')
     def serve_photo(filename):
-        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        folder = os.path.join(os.path.dirname(__file__), 'uploads', 'photos')
+        os.makedirs(folder, exist_ok=True)
+        return send_from_directory(folder, filename)
 
-    # Error handlers
     @app.errorhandler(404)
     def not_found(error):
         return jsonify({'error': 'Resource not found'}), 404
-    
+
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
-    
-    # Start background scheduler for periodic tasks
+
+    @app.route('/api/smoke-alert', methods=['POST'])
+    def smoke_alert_public():
+        from .api.admin import receive_smoke_alert
+        return receive_smoke_alert()
+
+    base = os.path.dirname(os.path.abspath(__file__))
+    for folder in ['uploads/photos', 'uploads/receipts', 'uploads/covers']:
+        os.makedirs(os.path.join(base, folder), exist_ok=True)
+
+    # Seed flags
+    _admin_seeded = False
+    _trending_seeded = False
+
+    @app.before_request
+    def seed_on_first_request():
+        nonlocal _admin_seeded, _trending_seeded
+        if request.path.startswith('/socket.io'):
+            return
+
+        # Seed default admin
+        if not _admin_seeded:
+            _admin_seeded = True
+            try:
+                count = db.session.execute(text("SELECT COUNT(*) FROM admins")).first()[0]
+                if count == 0:
+                    email = os.getenv('DEFAULT_ADMIN_EMAIL', 'admin@libmate.com')
+                    password = os.getenv('DEFAULT_ADMIN_PASSWORD', 'admin123')
+                    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                    db.session.execute(
+                        text("INSERT INTO admins (full_name, email, phone, password_hash, is_active) VALUES (:n,:e,:p,:h,TRUE)"),
+                        {'n': 'Super Admin', 'e': email, 'p': '', 'h': hashed}
+                    )
+                    db.session.commit()
+                    print(f"[OK] Default admin created: {email}")
+            except Exception as e:
+                print(f"[INFO] Admin seed skipped: {e}")
+
+        # Seed trending
+        if not _trending_seeded:
+            _trending_seeded = True
+            try:
+                from .services.recommendation_service import RecommendationService
+                count = db.session.execute(text("SELECT COUNT(*) FROM trending_books")).first()[0]
+                if count == 0:
+                    RecommendationService.update_trending_books()
+                    print("[OK] Initial trending data generated")
+            except Exception as e:
+                print(f"[INFO] Trending seed skipped: {e}")
+
+    # Scheduler
+    from .services.recommendation_service import RecommendationService
+    from .services.notification_service import NotificationService
+    from .services.email_service import send_due_date_reminder_emails, send_overdue_notice_emails
+
+    schedule.every().day.at("03:00").do(RecommendationService.update_trending_books)
+    schedule.every().day.at("09:00").do(NotificationService.send_due_date_reminders)
+    schedule.every().day.at("09:00").do(NotificationService.send_overdue_notices)
+    schedule.every().day.at("09:00").do(NotificationService.send_membership_expiry_warnings)
+    schedule.every().day.at("09:00").do(send_due_date_reminder_emails)
+    schedule.every().day.at("09:00").do(send_overdue_notice_emails)
+
     def run_scheduler():
         while True:
             schedule.run_pending()
             time.sleep(60)
-    
-    if app.config['FLASK_ENV'] == 'production':
-        from .services.notification_service import NotificationService
-        from .services.recommendation_service import RecommendationService
-        
-        # Schedule daily tasks at midnight
-        schedule.every().day.at("00:00").do(NotificationService.send_due_date_reminders)
-        schedule.every().day.at("00:00").do(NotificationService.send_overdue_notices)
-        schedule.every().monday.at("02:00").do(RecommendationService.update_trending_books)
-        
-        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-        scheduler_thread.start()
-    
+
+    threading.Thread(target=run_scheduler, daemon=True).start()
+
     return app

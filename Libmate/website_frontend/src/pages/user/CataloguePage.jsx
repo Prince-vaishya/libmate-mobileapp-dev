@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FaStar, FaThLarge, FaList, FaArrowLeft, FaArrowRight, FaTimes, FaBook } from 'react-icons/fa';
 import { booksAPI } from '../../services/api';
+import RequestBookModal from '../../components/models/RequestBookModal';
 
 // Language options
 const LANGUAGES = [
@@ -38,6 +39,16 @@ const BookGridCard = ({ book }) => {
       onClick={() => window.location.href = `/book/${book.book_id}`}
     >
       <div className="book-cover w-full h-[230px] rounded-[12px] flex items-end p-3 relative overflow-hidden shadow-md transition-shadow duration-250 hover:shadow-xl bg-gradient-to-br from-[#2C1F14] to-[#4A3728]">
+        {/* ADD COVER IMAGE */}
+        {book.cover_image && (
+          <img 
+            src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+            alt={book.title}
+            className="absolute inset-0 w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        )}
         <div className="absolute top-0 left-0 right-0 h-[40%] bg-gradient-to-b from-white/15 to-transparent rounded-t-[12px]"></div>
         <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold z-10 ${status.color} text-white`}>
           {status.label}
@@ -76,6 +87,16 @@ const BookListCard = ({ book }) => (
   <div className="book-list-item flex gap-4 p-2.5 bg-[#F3EDE3] border border-[#EAE0D0] rounded-[12px] cursor-pointer hover:shadow-md hover:border-[#C4895A] transition-all" onClick={() => window.location.href = `/book/${book.book_id}`}>
     {/* Cover Image */}
     <div className="list-cover w-[100px] h-[150px] rounded-lg flex items-end p-2 overflow-hidden relative shadow-md flex-shrink-0 bg-gradient-to-br from-[#2C1F14] to-[#4A3728]">
+      {/* ADD COVER IMAGE */}
+      {book.cover_image && (
+        <img 
+          src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+          alt={book.title}
+          className="absolute inset-0 w-full h-full object-cover rounded-lg"
+          loading="lazy"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent rounded-lg"></div>
       <span className="list-cover-title font-serif text-[10px] text-white/90 font-semibold leading-tight z-10 line-clamp-2">{book.title}</span>
     </div>
@@ -107,12 +128,13 @@ const BookListCard = ({ book }) => (
     
     {/* Two Buttons */}
     <div className="list-action flex flex-col gap-2 justify-center flex-shrink-0">
-      <button 
-        className="px-5 py-2 text-sm font-medium rounded-lg border border-[#2C1F14] bg-[#2C1F14] text-white hover:bg-[#4A3728] hover:border-[#4A3728] transition whitespace-nowrap"
+      <Link 
+        to={`/book/${book.book_id}`}
+        className="px-5 py-2 text-sm font-medium rounded-lg border border-[#2C1F14] bg-[#2C1F14] text-white hover:bg-[#4A3728] hover:border-[#4A3728] transition whitespace-nowrap text-center"
         onClick={(e) => e.stopPropagation()}
       >
-        {book.available_copies > 0 ? 'Borrow' : 'Reserve'}
-      </button>
+        {book.available_copies > 0 ? 'View Details' : 'Join Waitlist'}
+      </Link>
       <button 
         className="px-5 py-2 text-sm font-medium rounded-lg border border-[#EAE0D0] bg-white text-[#4A3728] hover:border-[#C4895A] hover:text-[#C4895A] transition whitespace-nowrap"
         onClick={(e) => e.stopPropagation()}
@@ -214,6 +236,7 @@ const CataloguePage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalBooks, setTotalBooks] = useState(0);
   const [sortOption, setSortOption] = useState('popular');
+  const [showRequestModal, setShowRequestModal] = useState(false); // ADDED
   
   // Search state from URL
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -226,7 +249,7 @@ const CataloguePage = () => {
   const [yearFrom, setYearFrom] = useState('');
   const [yearTo, setYearTo] = useState('');
   
-  // Static genres from API (won't disappear when filtering)
+  // Static genres from API
   const [allGenres, setAllGenres] = useState([]);
   
   // Temporary year values for the input fields
@@ -261,14 +284,12 @@ const CataloguePage = () => {
       setSearchType('all');
     }
     
-    // Handle multiple genres from URL (comma-separated)
     if (genre) {
       setSelectedGenres(genre.split(','));
     } else {
       setSelectedGenres([]);
     }
     
-    // Handle multiple languages from URL (comma-separated)
     if (lang) {
       setSelectedLanguages(lang.split(','));
     } else {
@@ -290,14 +311,13 @@ const CataloguePage = () => {
         
         if (searchQuery) {
           params.search = searchQuery;
+          params.type = searchType;
         }
         
-        // Handle multiple genres - send as comma-separated string
         if (selectedGenres.length > 0) {
           params.genre = selectedGenres.join(',');
         }
         
-        // Handle multiple languages - send as comma-separated string
         if (selectedLanguages.length > 0) {
           params.language = selectedLanguages.join(',');
         }
@@ -313,8 +333,6 @@ const CataloguePage = () => {
           params.year_to = yearTo;
         }
         
-        console.log('Fetching books with params:', params); // Debug log
-        
         const data = await booksAPI.getBooks(params);
         setBooks(data.books || []);
         setTotalPages(data.total_pages || 1);
@@ -328,7 +346,7 @@ const CataloguePage = () => {
     };
     
     fetchBooks();
-  }, [currentPage, selectedGenres, selectedLanguages, availableOnly, yearFrom, yearTo, searchQuery]);
+  }, [currentPage, selectedGenres, selectedLanguages, availableOnly, yearFrom, yearTo, searchQuery, searchType]);
 
   // Update URL when filters change
   useEffect(() => {
@@ -447,7 +465,7 @@ const CataloguePage = () => {
                   {selectedGenres.map(genre => (
                     <span key={genre} className="inline-flex items-center gap-1 px-2 py-1 bg-[#C4895A]/10 text-[#C4895A] text-xs rounded-full">
                       {genre}
-                      <button onClick={() => setSelectedGenres(selectedGenres.filter(g => g !== genre))}>
+                      <button onClick={() => { setSelectedGenres(selectedGenres.filter(g => g !== genre)); setCurrentPage(1); }}>
                         <FaTimes size={10} />
                       </button>
                     </span>
@@ -455,7 +473,7 @@ const CataloguePage = () => {
                   {selectedLanguages.map(lang => (
                     <span key={lang} className="inline-flex items-center gap-1 px-2 py-1 bg-[#C4895A]/10 text-[#C4895A] text-xs rounded-full">
                       {lang}
-                      <button onClick={() => setSelectedLanguages(selectedLanguages.filter(l => l !== lang))}>
+                      <button onClick={() => { setSelectedLanguages(selectedLanguages.filter(l => l !== lang)); setCurrentPage(1); }}>
                         <FaTimes size={10} />
                       </button>
                     </span>
@@ -491,7 +509,7 @@ const CataloguePage = () => {
               </label>
             </div>
 
-            {/* Genre Filter - Checkboxes for multiple selection */}
+            {/* Genre Filter */}
             <div className="filter-block bg-[#F3EDE3] border border-[#EAE0D0] rounded-[12px] p-4 mb-3">
               <div className="filter-block-title text-xs font-bold text-[#2C1F14] uppercase tracking-wide mb-3">
                 Genre
@@ -501,7 +519,7 @@ const CataloguePage = () => {
                   <input 
                     type="checkbox" 
                     checked={selectedGenres.length === 0}
-                    onChange={() => setSelectedGenres([])}
+                    onChange={() => { setSelectedGenres([]); setCurrentPage(1); }}
                     className="accent-[#C4895A]" 
                   />
                   <span className="text-[13px] font-medium text-[#2C1F14]">All Genres</span>
@@ -537,7 +555,7 @@ const CataloguePage = () => {
                   <input 
                     type="checkbox" 
                     checked={selectedLanguages.length === 0}
-                    onChange={() => setSelectedLanguages([])}
+                    onChange={() => { setSelectedLanguages([]); setCurrentPage(1); }}
                     className="accent-[#C4895A]" 
                   />
                   <span className="text-[13px] font-medium text-[#2C1F14]">All Languages</span>
@@ -563,7 +581,7 @@ const CataloguePage = () => {
               </div>
             </div>
 
-            {/* Published Year Filter with Apply button */}
+            {/* Published Year Filter */}
             <div className="filter-block bg-[#F3EDE3] border border-[#EAE0D0] rounded-[12px] p-4 mb-3">
               <div className="filter-block-title text-xs font-bold text-[#2C1F14] uppercase tracking-wide mb-3">
                 Published Year
@@ -643,7 +661,7 @@ const CataloguePage = () => {
             {sortedBooks.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-xl border border-[#EAE0D0]">
                 <FaBook className="text-6xl text-[#C4895A]/30 mx-auto mb-4" />
-                <p className="text-[#9A8478]">No books found matching your criteria.</p>
+                <p className="text-[#9A8478] mb-4">No books found matching your criteria.</p>
                 <button 
                   onClick={clearAllFilters}
                   className="mt-4 px-6 py-2 bg-[#C4895A] text-white rounded-full hover:bg-[#D4A574] transition"
@@ -680,13 +698,22 @@ const CataloguePage = () => {
                 <div className="text-sm font-medium text-[#2C1F14] mb-1">Can't find what you're looking for?</div>
                 <div className="text-xs text-[#9A8478]">Request a book and we'll try to add it to the library.</div>
               </div>
-              <button className="px-4 py-2 text-sm border border-[#EAE0D0] rounded-full hover:border-[#C4895A] hover:text-[#C4895A] transition">
+              <button 
+                onClick={() => setShowRequestModal(true)}
+                className="px-4 py-2 text-sm bg-[#C4895A] text-white rounded-full hover:bg-[#D4A574] transition"
+              >
                 Request a Book
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Request Book Modal */}
+      <RequestBookModal 
+        isOpen={showRequestModal} 
+        onClose={() => setShowRequestModal(false)} 
+      />
     </div>
   );
 };

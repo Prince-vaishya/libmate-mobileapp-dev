@@ -9,6 +9,14 @@ class Config:
     DB_USER = os.getenv('DB_USER', 'root')
     DB_PASSWORD = os.getenv('DB_PASSWORD', '')
     DB_NAME = os.getenv('DB_NAME', 'libmate_test')
+
+    # Email Configuration
+    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'your-email@gmail.com')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', 'your-app-password')
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'LibMate <your-email@gmail.com>')
     
     # MySQL Connection String
     SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4'
@@ -30,7 +38,6 @@ class Config:
         'http://localhost:3000',  # React default
         'http://127.0.0.1:5173',
         'http://127.0.0.1:3000',
-        '*',
     ]
     
     # App Configuration
@@ -38,11 +45,6 @@ class Config:
     DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
     PORT = int(os.getenv('PORT', 5000))
     
-    # File Uploads
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'photos')
-    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
-    ALLOWED_PHOTO_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp'}
-
     # Business Rules
     FINE_RATE_PER_DAY = float(os.getenv('FINE_RATE_PER_DAY', 5.00))
     MAX_BORROW_LIMIT = int(os.getenv('MAX_BORROW_LIMIT', 5))

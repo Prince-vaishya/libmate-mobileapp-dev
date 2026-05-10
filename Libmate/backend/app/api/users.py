@@ -1,41 +1,36 @@
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import text
 from ..extensions import db
-import bcrypt
+from ..utils.auth_utils import require_user
 import os
-import uuid
+from datetime import datetime
+from ..services.recommendation_service import RecommendationService
+
 
 users_bp = Blueprint('users', __name__)
 
 
 @users_bp.route('/me', methods=['GET'])
 @jwt_required()
+@require_user
 def get_my_profile():
     user_id = int(get_jwt_identity())
-
+    
     result = db.session.execute(
         text("SELECT * FROM vw_member_summary WHERE user_id = :user_id"),
         {'user_id': user_id}
     ).first()
-
+    
     if not result:
         return jsonify({'error': 'User not found'}), 404
-
-    data = dict(result._mapping)
-
-    # Fetch profile_picture separately as the view may not include it
-    pic_row = db.session.execute(
-        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
-        {'uid': user_id}
-    ).first()
-    data['profile_picture'] = pic_row.profile_picture if pic_row else None
-
-    return jsonify(data), 200
+    
+    return jsonify(dict(result._mapping)), 200
 
 
 @users_bp.route('/me', methods=['PUT'])
 @jwt_required()
+@require_user
 def update_my_profile():
     user_id = int(get_jwt_identity())
     data = request.get_json()
@@ -65,68 +60,111 @@ def update_my_profile():
 
 @users_bp.route('/upload-photo', methods=['POST'])
 @jwt_required()
-def upload_photo():
+@require_user
+def upload_profile_photo():
+    """Upload profile photo"""
     user_id = int(get_jwt_identity())
-
+    
+    print(f"Uploading photo for user: {user_id}")
+    
     if 'profile_photo' not in request.files:
-        return jsonify({'error': 'No photo file provided'}), 400
-
-    file = request.files['profile_photo']
-    if not file.filename:
+        return jsonify({'error': 'No photo provided'}), 400
+    
+    photo = request.files['profile_photo']
+    
+    if photo.filename == '':
         return jsonify({'error': 'No file selected'}), 400
-
-    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-    if ext not in current_app.config['ALLOWED_PHOTO_EXTENSIONS']:
-        return jsonify({'error': 'File type not allowed. Use JPG, PNG or WEBP'}), 400
-
-    # Delete old photo if one exists
-    existing = db.session.execute(
-        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
-        {'uid': user_id}
+    
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'webp'}
+    file_ext = photo.filename.rsplit('.', 1)[1].lower() if '.' in photo.filename else ''
+    
+    if file_ext not in allowed_extensions:
+        return jsonify({'error': 'Invalid file type. Use PNG, JPG, or WEBP'}), 400
+    
+    # Get upload folder path
+    upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'photos')
+    os.makedirs(upload_folder, exist_ok=True)
+    
+    print(f"Saving to: {upload_folder}")
+    
+    # Delete old photo if exists
+    old_photo = db.session.execute(
+        text("SELECT profile_picture FROM users WHERE user_id = :user_id"),
+        {'user_id': user_id}
     ).first()
-    if existing and existing.profile_picture:
-        old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], existing.profile_picture)
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-
+    
+    if old_photo and old_photo[0]:
+        old_photo_path = os.path.join(upload_folder, old_photo[0])
+        if os.path.exists(old_photo_path):
+            try:
+                os.remove(old_photo_path)
+                print(f"Deleted old photo: {old_photo_path}")
+            except Exception as e:
+                print(f"Error deleting old photo: {e}")
+    
+    # Save new photo
+    filename = f"profile_{user_id}_{int(datetime.now().timestamp())}.{file_ext}"
+    photo_path = os.path.join(upload_folder, filename)
+    photo.save(photo_path)
+    print(f"Saved new photo: {filename}")
+    
+    # Verify file was saved
+    if os.path.exists(photo_path):
+        print(f"File verified at: {photo_path}")
+        print(f"File size: {os.path.getsize(photo_path)} bytes")
+    else:
+        print("ERROR: File was not saved correctly!")
+        return jsonify({'error': 'Failed to save file'}), 500
+    
+    # Update user record
     db.session.execute(
-        text("UPDATE users SET profile_picture = :pic, updated_at = NOW() WHERE user_id = :uid"),
-        {'pic': filename, 'uid': user_id}
+        text("UPDATE users SET profile_picture = :filename, updated_at = NOW() WHERE user_id = :user_id"),
+        {'filename': filename, 'user_id': user_id}
     )
     db.session.commit()
-
-    photo_url = f"{request.host_url}uploads/photos/{filename}"
-    return jsonify({'message': 'Photo uploaded successfully', 'photo_url': photo_url}), 200
+    
+    return jsonify({
+        'message': 'Profile photo uploaded successfully',
+        'filename': filename,
+        'url': f'/uploads/photos/{filename}'
+    }), 200
 
 
 @users_bp.route('/remove-photo', methods=['DELETE'])
 @jwt_required()
-def remove_photo():
+@require_user
+def remove_profile_photo():
+    """Remove profile photo"""
     user_id = int(get_jwt_identity())
-
-    existing = db.session.execute(
-        text("SELECT profile_picture FROM users WHERE user_id = :uid"),
-        {'uid': user_id}
+    
+    result = db.session.execute(
+        text("SELECT profile_picture FROM users WHERE user_id = :user_id"),
+        {'user_id': user_id}
     ).first()
-
-    if existing and existing.profile_picture:
-        old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], existing.profile_picture)
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
+    
+    if result and result[0]:
+        upload_folder = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'uploads', 'photos')
+        photo_path = os.path.join(upload_folder, result[0])
+        if os.path.exists(photo_path):
+            try:
+                os.remove(photo_path)
+                print(f"Deleted photo: {photo_path}")
+            except Exception as e:
+                print(f"Error deleting photo: {e}")
+    
     db.session.execute(
-        text("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE user_id = :uid"),
-        {'uid': user_id}
+        text("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE user_id = :user_id"),
+        {'user_id': user_id}
     )
     db.session.commit()
-    return jsonify({'message': 'Photo removed successfully'}), 200
+    
+    return jsonify({'message': 'Profile photo removed successfully'}), 200
 
 
 @users_bp.route('/me/borrowings', methods=['GET'])
 @jwt_required()
+@require_user
 def get_my_borrowings():
     user_id = int(get_jwt_identity())
     
@@ -141,11 +179,12 @@ def get_my_borrowings():
 
 @users_bp.route('/me/history', methods=['GET'])
 @jwt_required()
+@require_user
 def get_my_history():
     user_id = int(get_jwt_identity())
     
     result = db.session.execute(
-        text("SELECT * FROM vw_borrow_history WHERE user_id = :user_id"),
+        text("SELECT * FROM vw_borrow_history WHERE user_id = :user_id ORDER BY returned_at DESC"),
         {'user_id': user_id}
     )
     history = [dict(row._mapping) for row in result]
@@ -155,6 +194,7 @@ def get_my_history():
 
 @users_bp.route('/me/wishlist', methods=['GET'])
 @jwt_required()
+@require_user
 def get_my_wishlist():
     user_id = int(get_jwt_identity())
     
@@ -178,10 +218,10 @@ def get_my_wishlist():
 
 @users_bp.route('/me/wishlist/<int:book_id>', methods=['POST'])
 @jwt_required()
+@require_user
 def add_to_wishlist(book_id):
     user_id = int(get_jwt_identity())
     
-    # Check if book exists
     book = db.session.execute(
         text("SELECT book_id FROM books WHERE book_id = :book_id AND is_archived = FALSE"),
         {'book_id': book_id}
@@ -190,7 +230,6 @@ def add_to_wishlist(book_id):
     if not book:
         return jsonify({'error': 'Book not found'}), 404
     
-    # Check if already in wishlist
     existing = db.session.execute(
         text("SELECT wishlist_id FROM wishlist WHERE user_id = :user_id AND book_id = :book_id"),
         {'user_id': user_id, 'book_id': book_id}
@@ -199,18 +238,21 @@ def add_to_wishlist(book_id):
     if existing:
         return jsonify({'error': 'Book already in wishlist'}), 409
     
-    # Add to wishlist
     db.session.execute(
         text("INSERT INTO wishlist (user_id, book_id) VALUES (:user_id, :book_id)"),
         {'user_id': user_id, 'book_id': book_id}
     )
     db.session.commit()
+
+    # Trigger recommendation update for user after adding to wishlist
+    RecommendationService.generate_recommendations_for_user(user_id)
     
     return jsonify({'message': 'Added to wishlist'}), 201
 
 
 @users_bp.route('/me/wishlist/<int:book_id>', methods=['DELETE'])
 @jwt_required()
+@require_user
 def remove_from_wishlist(book_id):
     user_id = int(get_jwt_identity())
     
@@ -228,157 +270,51 @@ def remove_from_wishlist(book_id):
 
 @users_bp.route('/me/notifications', methods=['GET'])
 @jwt_required()
+@require_user
 def get_my_notifications():
+    """Get current user's notifications"""
     user_id = int(get_jwt_identity())
-    try:
-        result = db.session.execute(
-            text("SELECT * FROM notifications WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 50"),
-            {'user_id': user_id}
-        )
-        notifications = [dict(row._mapping) for row in result]
-        return jsonify(notifications), 200
-    except Exception:
-        return jsonify([]), 200
+    
+    result = db.session.execute(
+        text("""
+            SELECT n.*, un.is_read, un.read_at
+            FROM notifications n
+            JOIN user_notifications un ON n.notification_id = un.notification_id
+            WHERE un.user_id = :uid
+            ORDER BY n.created_at DESC
+            LIMIT 50
+        """),
+        {'uid': user_id}
+    )
+    notifications = [dict(row._mapping) for row in result]
+    return jsonify(notifications), 200
 
 
-@users_bp.route('/me/notifications/read-all', methods=['PUT'])
+@users_bp.route('/me/notifications/<int:notification_id>/read', methods=['POST'])
 @jwt_required()
-def mark_all_notifications_read():
-    user_id = int(get_jwt_identity())
-    try:
-        db.session.execute(
-            text("UPDATE notifications SET is_read = TRUE WHERE user_id = :user_id"),
-            {'user_id': user_id}
-        )
-        db.session.commit()
-    except Exception:
-        pass
-    return jsonify({'message': 'All notifications marked as read'}), 200
-
-
-@users_bp.route('/me/notifications/<int:notification_id>/read', methods=['PUT'])
-@jwt_required()
+@require_user
 def mark_notification_read(notification_id):
+    """Mark a notification as read"""
     user_id = int(get_jwt_identity())
-    try:
-        db.session.execute(
-            text("UPDATE notifications SET is_read = TRUE WHERE notification_id = :nid AND user_id = :user_id"),
-            {'nid': notification_id, 'user_id': user_id}
-        )
-        db.session.commit()
-    except Exception:
-        pass
-    return jsonify({'message': 'Notification marked as read'}), 200
-
-
-@users_bp.route('/me/reservations', methods=['GET'])
-@jwt_required()
-def get_my_reservations():
-    user_id = int(get_jwt_identity())
-    result = db.session.execute(
-        text("""
-            SELECT r.reservation_id, r.book_id, r.reserved_at, r.expires_at, r.status,
-                   b.title, b.author, b.cover_image, b.available_copies, b.total_copies
-            FROM reservations r
-            JOIN books b ON r.book_id = b.book_id
-            WHERE r.user_id = :user_id AND r.status = 'pending'
-            ORDER BY r.reserved_at DESC
-        """),
-        {'user_id': user_id}
-    )
-    reservations = [dict(row._mapping) for row in result]
-    return jsonify(reservations), 200
-
-
-@users_bp.route('/me/reservations', methods=['POST'])
-@jwt_required()
-def create_reservation():
-    user_id = int(get_jwt_identity())
-    data = request.get_json()
-    book_id = data.get('book_id')
-
-    if not book_id:
-        return jsonify({'error': 'book_id is required'}), 400
-
-    book_row = db.session.execute(
-        text("SELECT book_id, available_copies FROM books WHERE book_id = :book_id AND is_archived = FALSE"),
-        {'book_id': book_id}
-    ).first()
-
-    if not book_row:
-        return jsonify({'error': 'Book not found'}), 404
-
-    book = dict(book_row._mapping)
-
-    if book['available_copies'] <= 0:
-        return jsonify({'error': 'No copies available for reservation'}), 409
-
-    existing = db.session.execute(
-        text("""
-            SELECT reservation_id FROM reservations
-            WHERE user_id = :user_id AND book_id = :book_id AND status = 'pending'
-        """),
-        {'user_id': user_id, 'book_id': book_id}
-    ).first()
-
-    if existing:
-        return jsonify({'error': 'You already have a reservation for this book'}), 409
-
+    
     db.session.execute(
-        text("""
-            INSERT INTO reservations (user_id, book_id, reserved_at, expires_at, status)
-            VALUES (:user_id, :book_id, NOW(), DATE_ADD(NOW(), INTERVAL 48 HOUR), 'pending')
-        """),
-        {'user_id': user_id, 'book_id': book_id}
+        text("UPDATE user_notifications SET is_read = TRUE, read_at = NOW() WHERE user_id = :uid AND notification_id = :nid"),
+        {'uid': user_id, 'nid': notification_id}
     )
     db.session.commit()
-    return jsonify({'message': 'Book reserved successfully. Collect within 48 hours.'}), 201
+    return jsonify({'message': 'Marked as read'}), 200
 
 
-@users_bp.route('/me/reservations/<int:reservation_id>', methods=['DELETE'])
+@users_bp.route('/me/notifications/read-all', methods=['POST'])
 @jwt_required()
-def cancel_reservation(reservation_id):
+@require_user
+def mark_all_notifications_read():
+    """Mark all notifications as read"""
     user_id = int(get_jwt_identity())
-    row = db.session.execute(
-        text("""
-            SELECT reservation_id FROM reservations
-            WHERE reservation_id = :rid AND user_id = :uid AND status = 'pending'
-        """),
-        {'rid': reservation_id, 'uid': user_id}
-    ).first()
-
-    if not row:
-        return jsonify({'error': 'Reservation not found or already cancelled'}), 404
-
+    
     db.session.execute(
-        text("UPDATE reservations SET status = 'cancelled' WHERE reservation_id = :rid"),
-        {'rid': reservation_id}
+        text("UPDATE user_notifications SET is_read = TRUE, read_at = NOW() WHERE user_id = :uid AND is_read = FALSE"),
+        {'uid': user_id}
     )
     db.session.commit()
-    return jsonify({'message': 'Reservation cancelled successfully'}), 200
-
-
-@users_bp.route('/me/recommendations', methods=['GET'])
-@jwt_required()
-def get_recommendations():
-    user_id = int(get_jwt_identity())
-    
-    # Try to get AI recommendations first
-    result = db.session.execute(
-        text("""
-            SELECT * FROM vw_recommendations 
-            WHERE user_id = :user_id
-            LIMIT 10
-        """),
-        {'user_id': user_id}
-    )
-    recommendations = [dict(row._mapping) for row in result]
-    
-    # Fallback to trending books if no recommendations
-    if not recommendations:
-        trending = db.session.execute(
-            text("SELECT * FROM vw_trending_books LIMIT 10")
-        )
-        recommendations = [dict(row._mapping) for row in trending]
-    
-    return jsonify(recommendations), 200
+    return jsonify({'message': 'All marked as read'}), 200
