@@ -15,36 +15,55 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getMyBorrowings, getMyHistory, getMyWishlist, getMyReservations, cancelReservation } from '@/api/users';
 import { getCoverUrl } from '@/api/client';
 import { requestRenewal } from '@/api/borrowings';
+import BookDetailScreen from '@/screens/catalogue/BookDetailScreen';
 
 const PLACEHOLDER = require('../../../assets/icon.png');
 const TABS = ['Borrowing', 'Reserved', 'Wishlist', 'History'];
-const MAX_RENEWALS = 2;
+const MAX_RENEWALS = 3;
+
+// Flask 2.x serialises naive (local-time) datetimes as RFC 1123 with a "GMT"
+// label, e.g. "Wed, 13 May 2026 09:43:00 GMT", even though the value is
+// actually Nepal local time.  new Date() on any engine parses RFC 1123
+// correctly, but treats it as UTC — 5 h 45 min ahead of reality.
+// Fix: extract the UTC components (which are really local-time values) and
+// re-stamp them as device-local time using the multi-arg Date constructor,
+// which always creates a local-time date on every JS engine.
+function parseLocalDate(str) {
+  if (!str) return new Date(NaN);
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return new Date(NaN);
+  return new Date(
+    d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(),
+    d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()
+  );
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-GB', {
+  return parseLocalDate(dateStr).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
 }
 
 function formatShortDate(dateStr) {
   if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-GB', {
+  return parseLocalDate(dateStr).toLocaleDateString('en-GB', {
     day: 'numeric', month: 'short',
   });
 }
 
 // ── Renew Book bottom-sheet modal ─────────────────────────────────
-function RenewModal({ item, onClose }) {
+function RenewModal({ item, onClose, onRefresh }) {
   if (!item) return null;
   const isOverdue = item.status === 'overdue';
-  const dueDate = new Date(item.due_date);
+  const dueDate = parseLocalDate(item.due_date);
   const newDueDate = new Date(dueDate);
   newDueDate.setDate(newDueDate.getDate() + 14);
 
   async function handleConfirm() {
     try {
       await requestRenewal(item.borrow_id);
+      onRefresh?.();
     } catch { /* ignore */ }
     onClose();
     Alert.alert(
@@ -106,11 +125,12 @@ function RenewModal({ item, onClose }) {
   );
 }
 
-function BorrowCard({ item, onRenew }) {
+function BorrowCard({ item, onRenew, onPress }) {
   const isOverdue = item.status === 'overdue';
+  const canRenew = item.renewal_count < MAX_RENEWALS;
   return (
     <View style={styles.borrowCard}>
-      <View style={styles.borrowCardInner}>
+      <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
         <Image
           source={item.cover_image ? { uri: getCoverUrl(item.cover_image) } : PLACEHOLDER}
           style={styles.borrowCover}
@@ -124,24 +144,25 @@ function BorrowCard({ item, onRenew }) {
             Due: {formatShortDate(item.due_date)}{isOverdue ? ' · OVERDUE' : ''}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
-        style={[styles.renewBtn, isOverdue && styles.fineBtn]}
+        style={[styles.renewBtn, isOverdue && styles.fineBtn, !canRenew && styles.renewBtnDisabled]}
         onPress={onRenew}
+        disabled={!canRenew}
         activeOpacity={0.8}
       >
         <Text style={styles.renewBtnText}>
-          {isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
+          {!canRenew ? 'Max Renewals Reached' : isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function HistoryCard({ item }) {
+function HistoryCard({ item, onPress }) {
   return (
     <View style={styles.borrowCard}>
-      <View style={styles.borrowCardInner}>
+      <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
         <Image
           source={item.cover_image ? { uri: getCoverUrl(item.cover_image) } : PLACEHOLDER}
           style={styles.borrowCover}
@@ -158,18 +179,18 @@ function HistoryCard({ item }) {
             </View>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
 
-function ReservationCard({ item, onCancel, cancelling }) {
-  const expiresAt = new Date(item.expires_at);
+function ReservationCard({ item, onCancel, cancelling, onPress }) {
+  const expiresAt = parseLocalDate(item.expires_at);
   const now = new Date();
   const hoursLeft = Math.max(0, Math.round((expiresAt - now) / 3600000));
   return (
     <View style={styles.borrowCard}>
-      <View style={styles.borrowCardInner}>
+      <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
         <Image
           source={item.cover_image ? { uri: getCoverUrl(item.cover_image) } : PLACEHOLDER}
           style={styles.borrowCover}
@@ -185,7 +206,7 @@ function ReservationCard({ item, onCancel, cancelling }) {
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         style={[styles.cancelBtn, cancelling && styles.cancelBtnDisabled]}
         onPress={onCancel}
@@ -198,11 +219,11 @@ function ReservationCard({ item, onCancel, cancelling }) {
   );
 }
 
-function WishlistCard({ book }) {
+function WishlistCard({ book, onPress }) {
   const avail = book.available_copies > 0;
   return (
     <View style={styles.borrowCard}>
-      <View style={styles.borrowCardInner}>
+      <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
         <Image
           source={book.cover_image ? { uri: getCoverUrl(book.cover_image) } : PLACEHOLDER}
           style={styles.borrowCover}
@@ -218,7 +239,7 @@ function WishlistCard({ book }) {
             </Text>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -234,6 +255,7 @@ function EmptyState({ message }) {
 export default function MyBooksScreen() {
   const [activeTab, setActiveTab]         = useState('Borrowing');
   const [renewItem, setRenewItem]         = useState(null);
+  const [selectedBook, setSelectedBook]   = useState(null);
   const [borrowings, setBorrowings]       = useState([]);
   const [history, setHistory]             = useState([]);
   const [wishlist, setWishlist]           = useState([]);
@@ -298,7 +320,12 @@ export default function MyBooksScreen() {
       case 'Borrowing':
         return borrowings.length > 0
           ? borrowings.map((item) => (
-              <BorrowCard key={item.borrow_id} item={item} onRenew={() => setRenewItem(item)} />
+              <BorrowCard
+                key={item.borrow_id}
+                item={item}
+                onRenew={() => setRenewItem(item)}
+                onPress={() => setSelectedBook(item)}
+              />
             ))
           : <EmptyState message="You have no active borrowings." />;
       case 'Reserved':
@@ -309,16 +336,21 @@ export default function MyBooksScreen() {
                 item={item}
                 onCancel={() => handleCancelReservation(item)}
                 cancelling={cancellingId === item.reservation_id}
+                onPress={() => setSelectedBook(item)}
               />
             ))
           : <EmptyState message="You have no reserved books." />;
       case 'Wishlist':
         return wishlist.length > 0
-          ? wishlist.map((book) => <WishlistCard key={book.book_id} book={book} />)
+          ? wishlist.map((book) => (
+              <WishlistCard key={book.book_id} book={book} onPress={() => setSelectedBook(book)} />
+            ))
           : <EmptyState message="Your wishlist is empty." />;
       case 'History':
         return history.length > 0
-          ? history.map((item) => <HistoryCard key={item.borrow_id} item={item} />)
+          ? history.map((item) => (
+              <HistoryCard key={item.borrow_id} item={item} onPress={() => setSelectedBook(item)} />
+            ))
           : <EmptyState message="No borrowing history yet." />;
       default:
         return null;
@@ -352,7 +384,13 @@ export default function MyBooksScreen() {
         {renderContent()}
       </ScrollView>
 
-      <RenewModal item={renewItem} onClose={() => setRenewItem(null)} />
+      <RenewModal item={renewItem} onClose={() => setRenewItem(null)} onRefresh={fetchData} />
+
+      {selectedBook && (
+        <Modal visible animationType="slide" onRequestClose={() => setSelectedBook(null)}>
+          <BookDetailScreen book={selectedBook} onClose={() => setSelectedBook(null)} />
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -384,9 +422,10 @@ const styles = StyleSheet.create({
   copyBadge:       { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   copyBadgeText:   { fontSize: 11, fontWeight: '600' },
 
-  renewBtn:     { alignSelf: 'stretch', backgroundColor: '#2C1F14', borderRadius: 10, paddingVertical: 12 },
-  fineBtn:      { backgroundColor: '#B85450' },
-  renewBtnText: { fontSize: 14, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
+  renewBtn:         { alignSelf: 'stretch', backgroundColor: '#2C1F14', borderRadius: 10, paddingVertical: 12 },
+  fineBtn:          { backgroundColor: '#B85450' },
+  renewBtnDisabled: { backgroundColor: '#9A8478' },
+  renewBtnText:     { fontSize: 14, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
 
   cancelBtn:         { alignSelf: 'stretch', backgroundColor: '#FADADD', borderRadius: 10, paddingVertical: 12 },
   cancelBtnDisabled: { opacity: 0.5 },

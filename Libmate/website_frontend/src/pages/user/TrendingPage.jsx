@@ -35,7 +35,7 @@ const TrendingBookCard = ({ book }) => {
           {/* ADD COVER IMAGE */}
           {book.cover_image && (
             <img 
-              src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+              src={`/uploads/covers/${book.cover_image}`}
               alt={book.title}
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"
@@ -158,7 +158,7 @@ const Top10List = ({ books, period, onPeriodChange, loading }) => {
                 <div className="w-14 h-20 rounded-md bg-gradient-to-br from-[#2C1F14] to-[#4A3728] flex-shrink-0 overflow-hidden shadow-sm">
                   {book.cover_image ? (
                       <img 
-                        src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+                        src={`/uploads/covers/${book.cover_image}`}
                         alt={book.title}
                         className="w-full h-full object-cover"
                         onError={(e) => { e.target.style.display = 'none'; }}
@@ -169,7 +169,7 @@ const Top10List = ({ books, period, onPeriodChange, loading }) => {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 overflow-hidden">
                   <div className="font-medium text-[#2C1F14] truncate text-sm">
                     {book.title}
                   </div>
@@ -456,7 +456,7 @@ const TrendingPage = () => {
           </div>
 
           {/* Right Side - Top 10 Sidebar */}
-          <div className="w-85 flex-shrink-0">
+          <div className="w-80 flex-shrink-0">
             <Top10List 
               books={topBooks} 
               period={topPeriod}

@@ -42,7 +42,7 @@ const BookGridCard = ({ book }) => {
         {/* ADD COVER IMAGE */}
         {book.cover_image && (
           <img 
-            src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+            src={`/uploads/covers/${book.cover_image}`}
             alt={book.title}
             className="absolute inset-0 w-full h-full object-cover"
             loading="lazy"
@@ -90,7 +90,7 @@ const BookListCard = ({ book }) => (
       {/* ADD COVER IMAGE */}
       {book.cover_image && (
         <img 
-          src={`http://localhost:5000/uploads/covers/${book.cover_image}`}
+          src={`/uploads/covers/${book.cover_image}`}
           alt={book.title}
           className="absolute inset-0 w-full h-full object-cover rounded-lg"
           loading="lazy"
@@ -625,7 +625,7 @@ const CataloguePage = () => {
           </aside>
 
           {/* Results Main */}
-          <div>
+          <div className="min-w-0 overflow-hidden">
             <div className="results-header flex justify-between items-center mb-5 flex-wrap gap-3">
               <div className="results-count text-sm text-[#9A8478]">
                 {sortedBooks.length} results

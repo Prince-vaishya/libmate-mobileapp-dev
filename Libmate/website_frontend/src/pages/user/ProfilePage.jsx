@@ -1,9 +1,9 @@
-// src/pages/ProfilePage.jsx - COMPLETE FILE
+// src/pages/ProfilePage.jsx 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { FaUser, FaEnvelope, FaPhone, FaMapMarker, FaCamera, FaCreditCard, FaCalendarAlt, FaUpload, FaQrcode, FaCheckCircle, FaExclamationTriangle, FaUserCircle, FaTrash } from 'react-icons/fa';
-import { usersAPI, membershipAPI, authAPI } from '../../services/api';
+import { usersAPI, membershipAPI, authAPI, API_BASE_URL  } from '../../services/api';
 
 const ProfilePage = () => {
   const { user, updateProfile, isAuthenticated } = useAuth();
@@ -115,8 +115,8 @@ const ProfilePage = () => {
       const formData = new FormData();
       formData.append('profile_photo', file);
       
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/users/upload-photo', {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/upload-photo`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -158,8 +158,8 @@ const ProfilePage = () => {
     setShowPhotoMenu(false);
     
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/users/remove-photo', {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/users/remove-photo`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -333,7 +333,7 @@ const ProfilePage = () => {
 
   const getProfilePhotoUrl = () => {
     if (user?.profile_picture) {
-      return `http://localhost:5000/uploads/photos/${user.profile_picture}?t=${photoTimestamp}`;
+      return `/uploads/photos/${user.profile_picture}?t=${photoTimestamp}`;
     }
     return null;
   };

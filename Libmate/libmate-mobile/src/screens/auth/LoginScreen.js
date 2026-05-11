@@ -2,7 +2,7 @@
  * LoginScreen
  *
  * Matches wireframe: logo → title → card with Login/Register tab switcher.
- * Login tab:    EMAIL, PASSWORD, Forget Password?, LOGIN button, OR, Login with biometrics
+ * Login tab:    EMAIL, PASSWORD, Forget Password?, LOGIN button
  * Register tab: Full Name, Email, Phone, Password, Confirm Password, CREATE ACCOUNT button
  */
 import React, { useState, useRef } from 'react';
@@ -313,21 +313,6 @@ function LoginForm() {
         }
       </TouchableOpacity>
 
-      <View style={styles.orRow}>
-        <View style={styles.orLine} />
-        <Text style={styles.orText}>OR</Text>
-        <View style={styles.orLine} />
-      </View>
-
-      <TouchableOpacity
-        style={styles.secondaryBtn}
-        onPress={() => Alert.alert('Biometrics', 'Biometric login coming soon.')}
-        activeOpacity={0.85}
-      >
-        <MaterialCommunityIcons name="fingerprint" size={20} color="#4A3728" style={{ marginRight: 8 }} />
-        <Text style={styles.secondaryBtnText}>Login with biometrics</Text>
-      </TouchableOpacity>
-
       <ForgotPasswordModal visible={showForgot} onClose={() => setShowForgot(false)} />
     </>
   );
@@ -509,19 +494,6 @@ const styles = StyleSheet.create({
   btnDisabled:    { opacity: 0.6 },
   primaryBtnText: { color: '#FAF7F2', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 },
 
-  orRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 16 },
-  orLine: { flex: 1, height: 1, backgroundColor: '#EAE0D0' },
-  orText: { fontSize: 13, color: '#9A8478', marginHorizontal: 12 },
-
-  secondaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3EDE3',
-    borderRadius: 12,
-    paddingVertical: 14,
-  },
-  secondaryBtnText: { fontSize: 15, fontWeight: '600', color: '#4A3728' },
 });
 
 const fpStyles = StyleSheet.create({

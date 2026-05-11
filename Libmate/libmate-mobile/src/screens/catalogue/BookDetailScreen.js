@@ -83,6 +83,8 @@ export default function BookDetailScreen({ book, onClose }) {
   const [fullBook, setFullBook]               = useState(book);
   const [inWishlist, setInWishlist]           = useState(() => isInWishlist(book.book_id));
   const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [borrowLoading, setBorrowLoading]     = useState(false);
+  const [borrowDone, setBorrowDone]           = useState(null); // null | 'borrowed' | 'waitlisted'
   const [reviews, setReviews]                 = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating]       = useState(5);
@@ -123,17 +125,23 @@ export default function BookDetailScreen({ book, onClose }) {
   }
 
   async function handleBorrowOrWaitlist() {
+    if (borrowLoading || borrowDone) return;
+    setBorrowLoading(true);
     try {
       if (available) {
         await borrowBook(book.book_id);
+        setBorrowDone('borrowed');
         Alert.alert('Borrow Requested!', `"${fullBook.title}" is reserved for pickup. Collect it at the front desk within 48 hours.`);
       } else {
         await createReservation(book.book_id);
+        setBorrowDone('waitlisted');
         Alert.alert('Added to Waitlist', `You've been added to the waitlist for "${fullBook.title}". We'll notify you when a copy becomes available.`);
       }
     } catch (err) {
       const msg = err.response?.data?.error || 'Could not complete request.';
       Alert.alert('Request Failed', msg);
+    } finally {
+      setBorrowLoading(false);
     }
   }
 
@@ -196,11 +204,20 @@ export default function BookDetailScreen({ book, onClose }) {
         {/* ── Reserve | Wishlist ── */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={styles.reserveBtn}
+            style={[styles.reserveBtn, (borrowDone || borrowLoading) && styles.reserveBtnDone]}
             onPress={handleBorrowOrWaitlist}
+            disabled={!!borrowDone || borrowLoading}
             activeOpacity={0.8}
           >
-            <Text style={styles.reserveBtnText}>{available ? 'Borrow Book' : 'Join Waitlist'}</Text>
+            {borrowLoading
+              ? <ActivityIndicator size="small" color="#FAF7F2" />
+              : <Text style={styles.reserveBtnText}>
+                  {borrowDone === 'borrowed'   ? 'Borrow Requested ✓'
+                  : borrowDone === 'waitlisted' ? 'On Waitlist ✓'
+                  : available                   ? 'Borrow Book'
+                  :                               'Join Waitlist'}
+                </Text>
+            }
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.wishlistBtn, inWishlist && styles.wishlistBtnActive]}
@@ -329,6 +346,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   btnDisabled:     { opacity: 0.5 },
+  reserveBtnDone:  { backgroundColor: '#4A7C59' },
   reserveBtnText:  { fontSize: 14, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
   wishlistBtn: {
     flex: 1, backgroundColor: '#F3EDE3', borderRadius: 10,

@@ -140,10 +140,14 @@ function NoMembershipView({ onGoToEdit }) {
         })}
       </View>
 
-      {/* QR placeholder */}
+      {/* QR Code */}
       <Text style={[styles.sectionLabel, { marginTop: 20 }]}>SCAN TO PAY</Text>
       <View style={styles.qrBox}>
-        <View style={styles.qrPlaceholder} />
+        <Image
+          source={{ uri: `${SERVER_BASE_URL}/api/membership/qr-code` }}
+          style={styles.qrImage}
+          resizeMode="contain"
+        />
         <Text style={styles.qrHint}>Scan this QR code with your payment app to complete the payment</Text>
       </View>
 
@@ -368,10 +372,9 @@ const styles = StyleSheet.create({
 
   // ── QR ──
   qrBox: { alignItems: 'center', gap: 10 },
-  qrPlaceholder: {
-    width: 160, height: 160,
-    backgroundColor: '#F3EDE3',
-    borderRadius: 8, borderWidth: 1, borderColor: '#EAE0D0',
+  qrImage: {
+    width: 200, height: 200,
+    borderRadius: 8,
   },
   qrHint: { fontSize: 12, color: '#9A8478', textAlign: 'center', lineHeight: 18 },
 

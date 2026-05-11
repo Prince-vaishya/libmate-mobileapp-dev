@@ -113,7 +113,7 @@ const BooksPage = () => {
       Object.keys(newBook).forEach(key => formData.append(key, newBook[key]));
       if (coverFile) formData.append('cover_image', coverFile);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/admin/books', {
+      const response = await fetch('/api/admin/books', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -138,7 +138,7 @@ const BooksPage = () => {
       });
       if (editCoverFile) formData.append('cover_image', editCoverFile);
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/admin/books/${editingBook.book_id}`, {
+      const response = await fetch(`/api/admin/books/${editingBook.book_id}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -156,7 +156,7 @@ const BooksPage = () => {
 
   const openEditModal = (book) => {
     setEditingBook({ ...book });
-    setEditCoverPreview(book.cover_image ? `http://localhost:5000/uploads/covers/${book.cover_image}` : null);
+    setEditCoverPreview(book.cover_image ? `/uploads/covers/${book.cover_image}` : null);
     setEditCoverFile(null);
     setShowEditModal(true);
   };
@@ -198,10 +198,26 @@ const BooksPage = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="font-serif text-3xl font-bold text-[#2C1F14]">Manage Books</h1>
-          <p className="text-[#9A8478] mt-1">Add, edit, archive, and restore library books</p>
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-[#EAE0D0]">
+          <button
+            onClick={() => { setActiveTab('active'); setPage(1); }}
+            className={`px-6 py-3 text-sm font-medium transition-all duration-200 ${
+              activeTab === 'active' ? 'text-[#C4895A] border-b-2 border-[#C4895A]' : 'text-[#9A8478] hover:text-[#4A3728]'
+            }`}
+          >
+            <FaBook size={12} className="inline mr-2" />Active Books
+          </button>
+          <button
+            onClick={() => { setActiveTab('archived'); setPage(1); }}
+            className={`px-6 py-3 text-sm font-medium transition-all duration-200 ${
+              activeTab === 'archived' ? 'text-[#C4895A] border-b-2 border-[#C4895A]' : 'text-[#9A8478] hover:text-[#4A3728]'
+            }`}
+          >
+            <FaArchive size={12} className="inline mr-2" />Archived Books
+          </button>
         </div>
+
         {activeTab === 'active' && (
           <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-4 py-2 bg-[#C4895A] text-white rounded-lg hover:bg-[#D4A574] transition">
             <FaPlus size={14} />Add New Book
@@ -209,25 +225,6 @@ const BooksPage = () => {
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-[#EAE0D0] mb-6">
-        <button
-          onClick={() => { setActiveTab('active'); setPage(1); }}
-          className={`px-6 py-3 text-sm font-medium transition-all duration-200 ${
-            activeTab === 'active' ? 'text-[#C4895A] border-b-2 border-[#C4895A]' : 'text-[#9A8478] hover:text-[#4A3728]'
-          }`}
-        >
-          <FaBook size={12} className="inline mr-2" />Active Books
-        </button>
-        <button
-          onClick={() => { setActiveTab('archived'); setPage(1); }}
-          className={`px-6 py-3 text-sm font-medium transition-all duration-200 ${
-            activeTab === 'archived' ? 'text-[#C4895A] border-b-2 border-[#C4895A]' : 'text-[#9A8478] hover:text-[#4A3728]'
-          }`}
-        >
-          <FaArchive size={12} className="inline mr-2" />Archived Books
-        </button>
-      </div>
 
       {/* Filters (only for active tab) */}
       <div className="bg-white rounded-xl shadow-sm border border-[#EAE0D0] p-4 mb-6">
@@ -306,7 +303,7 @@ const BooksPage = () => {
                   <tr key={book.book_id} className="hover:bg-[#FAF7F2] transition">
                     <td className="py-3 px-4">
                       {book.cover_image ? (
-                        <img src={`http://localhost:5000/uploads/covers/${book.cover_image}`} alt="" className="w-10 h-14 object-cover rounded" onError={(e) => { e.target.style.display = 'none'; }} />
+                        <img src={`/uploads/covers/${book.cover_image}`} alt="" className="w-10 h-14 object-cover rounded" onError={(e) => { e.target.style.display = 'none'; }} />
                       ) : (
                         <div className="w-10 h-14 bg-gradient-to-br from-[#2C1F14] to-[#4A3728] rounded flex items-center justify-center">
                           <FaBook className="text-white/50 text-xs" />

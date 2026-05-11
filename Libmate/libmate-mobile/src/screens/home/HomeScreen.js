@@ -34,6 +34,15 @@ import { MOCK_BOOKS } from '@/data/mockData';
 
 const SEARCH_PLACEHOLDER = require('../../../assets/icon.png');
 
+function dedupeBooks(books) {
+  const seen = new Set();
+  return books.filter((b) => {
+    if (seen.has(b.book_id)) return false;
+    seen.add(b.book_id);
+    return true;
+  });
+}
+
 function SearchModal({ visible, onClose, onSelectBook }) {
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState([]);
@@ -96,7 +105,7 @@ function SearchModal({ visible, onClose, onSelectBook }) {
           {/* ── Results ── */}
           <FlatList
             data={results}
-            keyExtractor={(b) => String(b.book_id)}
+            keyExtractor={(b, index) => `${b.book_id ?? index}-${index}`}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={search.list}
             renderItem={({ item }) => {
@@ -173,7 +182,7 @@ function HorizontalBookList({ books, loading, onPress }) {
     <FlatList
       horizontal
       data={books}
-      keyExtractor={(b) => String(b.book_id)}
+      keyExtractor={(b, index) => `${b.book_id ?? index}-${index}`}
       renderItem={({ item }) => (
         <BookCard book={item} horizontal onPress={() => onPress(item)} />
       )}
@@ -226,21 +235,21 @@ export default function HomeScreen() {
       getNotifications(),
     ]);
 
-    setTrending(
+    setTrending(dedupeBooks(
       results[0].status === 'fulfilled'
         ? (results[0].value.data?.books || results[0].value.data || [])
         : MOCK_BOOKS.slice(0, 8)
-    );
-    setNewArrivals(
+    ));
+    setNewArrivals(dedupeBooks(
       results[1].status === 'fulfilled'
         ? (results[1].value.data?.books || results[1].value.data || [])
         : MOCK_BOOKS.slice(4, 10)
-    );
-    setRecommendations(
+    ));
+    setRecommendations(dedupeBooks(
       results[2].status === 'fulfilled'
         ? (results[2].value.data?.books || results[2].value.data || [])
         : MOCK_BOOKS.slice(2, 8)
-    );
+    ));
     if (results[3].status === 'fulfilled') {
       const notifs = results[3].value.data;
       const arr = Array.isArray(notifs) ? notifs : (notifs?.notifications || []);
