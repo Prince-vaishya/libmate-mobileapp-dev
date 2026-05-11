@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -123,8 +124,8 @@ function RenewModal({ item, onClose, onRefresh }) {
 function BorrowCard({ item, onRenew, onPress }) {
   const isOverdue = item.status === 'overdue';
   const canRenew = item.renewal_count < MAX_RENEWALS;
-  const daysUntilDue = Math.ceil((parseLocalDate(item.due_date) - new Date()) / 86400000);
-  const renewalOpen = isOverdue || daysUntilDue <= 11;
+  const daysLeft = Math.ceil((parseLocalDate(item.due_date) - new Date()) / 86400000);
+  const renewalOpen = isOverdue || daysLeft <= 3;
   return (
     <View style={styles.borrowCard}>
       <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
@@ -142,7 +143,7 @@ function BorrowCard({ item, onRenew, onPress }) {
           </Text>
         </View>
       </TouchableOpacity>
-      {renewalOpen && (
+      {renewalOpen ? (
         <TouchableOpacity
           style={[styles.renewBtn, isOverdue && styles.fineBtn, !canRenew && styles.renewBtnDisabled]}
           onPress={onRenew}
@@ -153,6 +154,12 @@ function BorrowCard({ item, onRenew, onPress }) {
             {!canRenew ? 'Max Renewals Reached' : isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
           </Text>
         </TouchableOpacity>
+      ) : (
+        <View style={styles.renewalNotice}>
+          <Text style={styles.renewalNoticeText}>
+            Renewal opens in {daysLeft - 3} day{daysLeft - 3 !== 1 ? 's' : ''}
+          </Text>
+        </View>
       )}
     </View>
   );
@@ -260,6 +267,7 @@ export default function MyBooksScreen() {
   const [wishlist, setWishlist]           = useState([]);
   const [reservations, setReservations]   = useState([]);
   const [cancellingId, setCancellingId]   = useState(null);
+  const [refreshing, setRefreshing]       = useState(false);
 
   async function fetchData() {
     const [bRes, hRes, wRes, rRes] = await Promise.allSettled([
@@ -379,7 +387,18 @@ export default function MyBooksScreen() {
       </View>
       <View style={styles.tabDivider} />
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => { setRefreshing(true); await fetchData(); setRefreshing(false); }}
+            tintColor="#C4895A"
+            colors={['#C4895A']}
+          />
+        }
+      >
         {renderContent()}
       </ScrollView>
 
@@ -425,6 +444,9 @@ const styles = StyleSheet.create({
   fineBtn:          { backgroundColor: '#B85450' },
   renewBtnDisabled: { backgroundColor: '#9A8478' },
   renewBtnText:     { fontSize: 14, fontWeight: '700', color: '#FAF7F2', textAlign: 'center' },
+
+  renewalNotice:     { alignItems: 'center', paddingVertical: 8 },
+  renewalNoticeText: { fontSize: 12, color: '#9A8478', fontStyle: 'italic' },
 
   cancelBtn:         { alignSelf: 'stretch', backgroundColor: '#FADADD', borderRadius: 10, paddingVertical: 12 },
   cancelBtnDisabled: { opacity: 0.5 },

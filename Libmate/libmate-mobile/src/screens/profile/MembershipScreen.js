@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Alert, ScrollView, ActivityIndicator, Image,
+  Alert, ScrollView, ActivityIndicator, Image, RefreshControl,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -33,9 +33,13 @@ function formatDate(dateStr) {
 }
 
 // ── No profile picture guard ─────────────────────────────────────────────────
-function NoPictureView({ onGoToEdit }) {
+function NoPictureView({ onGoToEdit, refreshProps }) {
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl {...refreshProps} tintColor="#C4895A" colors={['#C4895A']} />}
+    >
       <View style={styles.guardBox}>
         <MaterialCommunityIcons name="account-circle-outline" size={52} color="#C4895A" />
         <Text style={styles.guardTitle}>Profile Photo Required</Text>
@@ -52,7 +56,7 @@ function NoPictureView({ onGoToEdit }) {
 }
 
 // ── Apply form ───────────────────────────────────────────────────────────────
-function NoMembershipView({ onGoToEdit }) {
+function NoMembershipView({ onGoToEdit, refreshProps }) {
   const { user, setMembership } = useAuthStore();
   const [selected, setSelected]   = useState(6);
   const [receipt,  setReceipt]    = useState(null);
@@ -108,7 +112,11 @@ function NoMembershipView({ onGoToEdit }) {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl {...refreshProps} tintColor="#C4895A" colors={['#C4895A']} />}
+    >
 
       {/* Duration */}
       <Text style={styles.sectionLabel}>SELECT DURATION</Text>
@@ -219,11 +227,15 @@ function NoMembershipView({ onGoToEdit }) {
 }
 
 // ── Pending ──────────────────────────────────────────────────────────────────
-function PendingView() {
+function PendingView({ refreshProps }) {
   const { membership } = useAuthStore();
   const plan = PLANS.find(p => p.months === membership?.duration_months);
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl {...refreshProps} tintColor="#C4895A" colors={['#C4895A']} />}
+    >
       <View style={styles.pendingCard}>
         <MaterialCommunityIcons name="clock-outline" size={44} color="#D97706" />
         <Text style={styles.pendingTitle}>Application Pending</Text>
@@ -261,12 +273,16 @@ function PendingView() {
 }
 
 // ── Active ────────────────────────────────────────────────────────────────────
-function ActiveView() {
+function ActiveView({ refreshProps }) {
   const { membership } = useAuthStore();
   const isActive = membership.status === 'active';
 
   return (
-    <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl {...refreshProps} tintColor="#C4895A" colors={['#C4895A']} />}
+    >
       <View style={styles.card}>
         <View style={styles.cardTop}>
           <View style={styles.cardIconBox}>
@@ -323,14 +339,30 @@ function ActiveView() {
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 export default function MembershipScreen({ onGoToEdit }) {
-  const { membership, user } = useAuthStore();
+  const { membership, user, setMembership } = useAuthStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      const { data } = await getMembershipStatus();
+      if (data?.status === 'none') {
+        setMembership(null, false);
+      } else {
+        setMembership(data, data?.has_membership ?? false);
+      }
+    } catch { /* silent */ }
+    setRefreshing(false);
+  }
+
+  const refreshProps = { refreshing, onRefresh };
 
   if (!membership) {
-    if (!user?.profile_picture) return <NoPictureView onGoToEdit={onGoToEdit} />;
-    return <NoMembershipView onGoToEdit={onGoToEdit} />;
+    if (!user?.profile_picture) return <NoPictureView onGoToEdit={onGoToEdit} refreshProps={refreshProps} />;
+    return <NoMembershipView onGoToEdit={onGoToEdit} refreshProps={refreshProps} />;
   }
-  if (membership.status === 'pending') return <PendingView />;
-  return <ActiveView />;
+  if (membership.status === 'pending') return <PendingView refreshProps={refreshProps} />;
+  return <ActiveView refreshProps={refreshProps} />;
 }
 
 const styles = StyleSheet.create({
