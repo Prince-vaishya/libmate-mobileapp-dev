@@ -85,11 +85,6 @@ function RenewModal({ item, onClose, onRefresh }) {
 
           <View style={renewStyles.infoBlock}>
             <View style={renewStyles.infoRow}>
-              <Text style={renewStyles.infoLabel}>Current Due Date</Text>
-              <Text style={renewStyles.infoValue}>{formatDate(item.due_date)}</Text>
-            </View>
-            <View style={renewStyles.rowDivider} />
-            <View style={renewStyles.infoRow}>
               <Text style={renewStyles.infoLabel}>Renewals Used</Text>
               <Text style={renewStyles.infoValue}>{item.renewal_count}/{MAX_RENEWALS}</Text>
             </View>
@@ -128,6 +123,8 @@ function RenewModal({ item, onClose, onRefresh }) {
 function BorrowCard({ item, onRenew, onPress }) {
   const isOverdue = item.status === 'overdue';
   const canRenew = item.renewal_count < MAX_RENEWALS;
+  const daysUntilDue = Math.ceil((parseLocalDate(item.due_date) - new Date()) / 86400000);
+  const renewalOpen = isOverdue || daysUntilDue <= 11;
   return (
     <View style={styles.borrowCard}>
       <TouchableOpacity style={styles.borrowCardInner} onPress={onPress} activeOpacity={0.75}>
@@ -145,16 +142,18 @@ function BorrowCard({ item, onRenew, onPress }) {
           </Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.renewBtn, isOverdue && styles.fineBtn, !canRenew && styles.renewBtnDisabled]}
-        onPress={onRenew}
-        disabled={!canRenew}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.renewBtnText}>
-          {!canRenew ? 'Max Renewals Reached' : isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
-        </Text>
-      </TouchableOpacity>
+      {renewalOpen && (
+        <TouchableOpacity
+          style={[styles.renewBtn, isOverdue && styles.fineBtn, !canRenew && styles.renewBtnDisabled]}
+          onPress={onRenew}
+          disabled={!canRenew}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.renewBtnText}>
+            {!canRenew ? 'Max Renewals Reached' : isOverdue ? 'Pay Fine & Renew' : 'Request Renewal'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
