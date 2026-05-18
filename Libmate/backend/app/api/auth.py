@@ -78,7 +78,7 @@ def login():
             'is_admin': False
         }), 200
     
-    # Try admins table
+    # Try admins tabl
     admin = db.session.execute(
         text("SELECT * FROM admins WHERE email = :email AND is_active = TRUE"),
         {'email': email}

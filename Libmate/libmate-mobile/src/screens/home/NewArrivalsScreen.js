@@ -58,11 +58,16 @@ export default function NewArrivalsScreen({ onClose }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedBook, setSelectedBook] = useState(null);
 
+  function dedupe(arr) {
+    const seen = new Set();
+    return arr.filter((b) => { if (seen.has(b.book_id)) return false; seen.add(b.book_id); return true; });
+  }
+
   async function fetchPage(pageNum, replace = false) {
     try {
       const { data } = await getAllNewArrivals(pageNum, 20);
-      const incoming = data.books || [];
-      setBooks((prev) => replace ? incoming : [...prev, ...incoming]);
+      const incoming = dedupe(data.books || []);
+      setBooks((prev) => replace ? incoming : dedupe([...prev, ...incoming]));
       setTotalPages(data.total_pages || 1);
       setPage(pageNum);
     } catch { /* keep existing */ }

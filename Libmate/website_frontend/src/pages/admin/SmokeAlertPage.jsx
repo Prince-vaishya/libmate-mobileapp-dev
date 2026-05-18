@@ -1,6 +1,6 @@
 // src/pages/admin/SmokeAlertsPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { FaFire, FaExclamationTriangle, FaCheckCircle, FaClock, FaTrash, FaMicrochip } from 'react-icons/fa';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { FaFire, FaExclamationTriangle, FaCheckCircle, FaMicrochip, FaCheckDouble } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import { adminAPI } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
@@ -9,6 +9,7 @@ const SmokeAlertsPage = () => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [resolving, setResolving] = useState(null);
+  const [resolvingAll, setResolvingAll] = useState(false);
   const { showToast } = useToast();
 
   const fetchAlerts = useCallback(async () => {
@@ -23,28 +24,52 @@ const SmokeAlertsPage = () => {
     }
   }, [showToast]);
 
+  // Add this after the socket useEffect in SmokeAlertsPage.jsx
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAlerts();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchAlerts]);
+
+  const socketRef = useRef(null);
+
   useEffect(() => {
     fetchAlerts();
 
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const socket = io({ query: { token } });
+    // Prevent duplicate connections from React StrictMode
+    if (socketRef.current) return;
 
-    socket.on('new_notification', (data) => {
-      if (data.type === 'smoke_alert') {
-        fetchAlerts();
-        showToast(data.message || 'Smoke alert received!', 'error');
-      }
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    socketRef.current = io({ query: { token } });
+
+    socketRef.current.on('connect', () => {
+      fetchAlerts();
     });
 
-    return () => socket.disconnect();
-  }, [fetchAlerts, showToast]);
+    socketRef.current.on('new_notification', (data) => {
+      fetchAlerts();
+    });
+
+    return () => {
+      socketRef.current?.removeAllListeners();
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   const handleResolve = async (alertId) => {
     setResolving(alertId);
     try {
       await adminAPI.resolveSmokeAlert(alertId, 'Resolved by admin');
+      setAlerts(prev => prev.map(a => 
+        a.alert_id === alertId ? { ...a, status: 'resolved', resolved_at: new Date().toISOString() } : a
+      ));
       showToast('Alert resolved', 'success');
-      fetchAlerts();
     } catch (error) {
       showToast(error.message || 'Failed to resolve', 'error');
     } finally {
@@ -52,11 +77,35 @@ const SmokeAlertsPage = () => {
     }
   };
 
+  const handleResolveAll = async () => {
+    if (!window.confirm(`Resolve all ${activeAlerts} active alerts?`)) return;
+    setResolvingAll(true);
+    try {
+      const activeAlertIds = alerts.filter(a => a.status === 'active').map(a => a.alert_id);
+      for (const id of activeAlertIds) {
+        await adminAPI.resolveSmokeAlert(id, 'Bulk resolved by admin');
+      }
+      setAlerts(prev => prev.map(a => 
+        a.status === 'active' ? { ...a, status: 'resolved', resolved_at: new Date().toISOString() } : a
+      ));
+      showToast(`Resolved ${activeAlertIds.length} alerts`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to resolve all', 'error');
+    } finally {
+      setResolvingAll(false);
+    }
+  };
+
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
-    });
+      if (!dateString) return 'N/A';
+      // The DB stores Nepal time but JS treats it as UTC
+      // Append +05:45 to tell JS it's Nepal time, not UTC
+      const fixedDate = dateString + '+05:45';
+      const date = new Date(fixedDate);
+      return date.toLocaleString('en-US', {
+          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: true
+      });
   };
 
   const activeAlerts = alerts.filter(a => a.status === 'active').length;
@@ -74,6 +123,16 @@ const SmokeAlertsPage = () => {
             )}
           </p>
         </div>
+        {activeAlerts > 1 && (
+          <button
+            onClick={handleResolveAll}
+            disabled={resolvingAll}
+            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition text-sm font-medium disabled:opacity-50"
+          >
+            <FaCheckDouble size={14} />
+            {resolvingAll ? 'Resolving...' : 'Resolve All'}
+          </button>
+        )}
       </div>
 
       {activeAlerts > 0 && (
